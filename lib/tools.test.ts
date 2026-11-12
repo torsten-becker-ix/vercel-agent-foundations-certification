@@ -161,6 +161,7 @@ describe("searchProductsStep", () => {
         },
       ],
       page: 1,
+      pageSize: SEARCH_DEFAULT_LIMIT,
       totalPages: 1,
       total: 1,
       hasNextPage: false,

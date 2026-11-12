@@ -7,6 +7,8 @@ import {
 import type { ReactNode } from "react";
 
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import { ProductDetailsCard } from "@/components/shopping/product-details-card";
+import { ProductResults } from "@/components/shopping/product-results";
 import type { ShoppingMessagePart } from "@/lib/chat-types";
 import { cn } from "@/lib/utils";
 
@@ -79,7 +81,13 @@ function failedLabel(part: ShoppingToolPart): string {
   }
 }
 
-function Outcome({ part }: { part: ShoppingToolPart }) {
+function Outcome({
+  part,
+  shownBefore,
+}: {
+  part: ShoppingToolPart;
+  shownBefore: ReadonlySet<string>;
+}) {
   if (part.state !== "output-available") return null;
   switch (part.type) {
     case "tool-getAllCategories":
@@ -105,9 +113,16 @@ function Outcome({ part }: { part: ShoppingToolPart }) {
         );
       }
       return (
-        <StatusLine icon={<CheckIcon />}>
-          Found {output.total} {output.total === 1 ? "product" : "products"}
-        </StatusLine>
+        <ProductResults
+          category={output.category}
+          match={output.match}
+          page={output.page}
+          pageSize={output.pageSize}
+          products={output.products}
+          query={output.query}
+          shownBefore={shownBefore}
+          total={output.total}
+        />
       );
     }
     case "tool-getProductDetails": {
@@ -120,21 +135,25 @@ function Outcome({ part }: { part: ShoppingToolPart }) {
         );
       }
       return (
-        <StatusLine icon={<CheckIcon />}>{output.product.name}</StatusLine>
+        <ProductDetailsCard product={output.product} stock={output.stock} />
       );
     }
   }
 }
 
 /**
- * Progress and outcome of one tool call, in shopper language (no tool names
- * or raw data). Product results get richer cards in a later step.
+ * One tool call in the conversation, in shopper language (no tool names or
+ * raw data): progress while it runs, product cards for results, and a short
+ * explanation for failures, empty results or missing products.
  */
-export function ToolStatus({
+export function ToolPart({
   part,
   isStreaming,
+  shownBefore,
 }: {
   part: ShoppingToolPart;
+  /** Product ids already shown earlier in the same reply. */
+  shownBefore: ReadonlySet<string>;
   /** False once the response ended (finished, stopped or failed). */
   isStreaming: boolean;
 }) {
@@ -156,6 +175,6 @@ export function ToolStatus({
         </StatusLine>
       );
     case "output-available":
-      return <Outcome part={part} />;
+      return <Outcome part={part} shownBefore={shownBefore} />;
   }
 }

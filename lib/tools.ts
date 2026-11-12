@@ -92,6 +92,8 @@ export type SearchProductsResult =
       match: "phrase" | "keywords";
       products: ProductSummary[];
       page: number;
+      /** Products per page (the last page may hold fewer). */
+      pageSize: number;
       totalPages: number;
       total: number;
       hasNextPage: boolean;
@@ -270,6 +272,7 @@ async function searchByKeywords(
     match: "keywords",
     products: ranked,
     page: 1,
+    pageSize: limit,
     totalPages: ranked.length === 0 ? 0 : 1,
     total: ranked.length,
     hasNextPage: false,
@@ -299,6 +302,7 @@ export async function searchProductsStep(
       match: "phrase",
       products: products.map(toProductSummary),
       page: pagination.page,
+      pageSize: pagination.limit,
       totalPages: pagination.totalPages,
       total: pagination.total,
       hasNextPage: pagination.hasNextPage,

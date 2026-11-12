@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Minus, Plus } from "lucide-react";
+import { StockBadge } from "@/components/stock-badge";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/cart-provider";
 import { getProductStockAction } from "@/lib/cart-actions";
@@ -42,7 +43,6 @@ export function ProductPurchase({ product }: ProductPurchaseProps) {
 
   const isLoadingStock = stock === null;
   const isOutOfStock = !isLoadingStock && !stock.inStock;
-  const isLowStock = !isLoadingStock && stock.lowStock && stock.stock > 0;
   const maxQty = stock ? Math.max(1, stock.stock) : 1;
 
   const handleDecrement = () => {
@@ -66,23 +66,7 @@ export function ProductPurchase({ product }: ProductPurchaseProps) {
   return (
     <>
       <div className="mt-4">
-        {isLoadingStock ? (
-          <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
-            Checking availability…
-          </span>
-        ) : isOutOfStock ? (
-          <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
-            Out of stock
-          </span>
-        ) : isLowStock ? (
-          <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-sm text-foreground">
-            Only {stock.stock} left in stock
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-sm text-foreground">
-            In stock
-          </span>
-        )}
+        <StockBadge className="text-sm" stock={stock} />
       </div>
 
       <div className="mt-8">
