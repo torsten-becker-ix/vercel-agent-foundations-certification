@@ -81,7 +81,7 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
 
 - `withWorkflow` (`next.config.mjs`) generates `app/.well-known/workflow/v1/*` (git-ignored by its own `.gitignore`) and a `.swc/` cache; both are excluded from ESLint/Prettier. Don't add `.well-known/workflow` to the `proxy.ts` matcher.
 - `pnpm-workspace.yaml`: `allowBuilds` for `@swc/core`, `esbuild`, `cbor-extract` (needed by `workflow`, pnpm 12 blocks install scripts otherwise), plus `minimumReleaseAgeExclude` for the pinned `ai@7.0.170` family.
-- Model: `openai/gpt-oss-120b` during development (free-tier Gateway credits exclude Anthropic models); switch to `anthropic/claude-sonnet-5.5` before submission.
+- Model: `openai/gpt-oss-120b` for both agents, including the submission (free-tier Gateway credits exclude Anthropic models). One constant per agent.
 - Inspect runs locally: `pnpm exec workflow inspect runs` / `pnpm exec workflow web`.
 
 ## Architecture

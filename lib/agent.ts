@@ -5,9 +5,8 @@
  */
 
 /**
- * AI Gateway model id (Gateway ids use dots, e.g. `claude-sonnet-5.5`).
- * DEV: gpt-oss-120b (free-tier credits exclude all Anthropic models). Switch to
- * `anthropic/claude-sonnet-5.5` before submission (checklist H).
+ * AI Gateway model id. gpt-oss-120b: tool use, cheap, and available on
+ * free-tier Gateway credits (which exclude Anthropic models).
  */
 export const SHOPPING_AGENT_MODEL = "openai/gpt-oss-120b";
 
