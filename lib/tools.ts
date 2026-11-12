@@ -52,7 +52,10 @@ export interface ProductSummary {
   /** Integer cents (for the UI). */
   price: number;
   currency: string;
-  /** Display price, e.g. "$60.00", so the model never converts cents itself. */
+  /**
+   * Display price, e.g. "$60.00". gpt-oss workaround (precaution): it handled
+   * cents correctly in tests but miscounted lists, so it gets no arithmetic.
+   */
   priceFormatted: string;
   category: string;
   image: string | null;
@@ -72,7 +75,7 @@ export interface StockSummary {
 
 export interface GetAllCategoriesResult {
   status: "ok";
-  /** Number of categories (so the model never counts the list itself). */
+  /** Number of categories. gpt-oss workaround: it miscounted the list (14, 15 instead of 13). */
   total: number;
   categories: CategorySummary[];
 }
@@ -107,7 +110,7 @@ export type GetProductDetailsResult =
 // Input schemas
 // ---------------------------------------------------------------------------
 
-// Open-weight models often send `null` for omitted optional fields, so the
+// gpt-oss workaround: gpt-oss sends `null` for omitted optional fields, so the
 // optional inputs accept `null` and are normalized to `undefined`.
 const optionalText = (max: number) =>
   z

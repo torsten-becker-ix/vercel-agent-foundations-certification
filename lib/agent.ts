@@ -13,7 +13,7 @@ import type { ProviderOptions } from "@ai-sdk/workflow";
 export const SHOPPING_AGENT_MODEL = "openai/gpt-oss-120b";
 
 /**
- * AI Gateway routing for gpt-oss-120b. Measured 2026-11-12: Together AI failed
+ * gpt-oss workaround: AI Gateway routing for gpt-oss-120b. Measured 2026-11-12: Together AI failed
  * to parse gpt-oss tool calls ("Parse error: Failed to process token…",
  * malformed tool JSON), so it is excluded. Cerebras was error-free, so it is
  * preferred; the Gateway falls back down the list on provider errors.
@@ -28,6 +28,15 @@ export const SHOPPING_AGENT_PROVIDER_OPTIONS = {
 /** Upper bound on model calls per user message (cost and runaway-loop guard). */
 export const SHOPPING_AGENT_MAX_STEPS = 8;
 
+/**
+ * gpt-oss workaround: these rules were added after gpt-oss-120b misbehaved in
+ * live tests (see smoke-tests.md). Re-check them if the model changes:
+ * - "Call the tools you need first…": it wrote answers before tool results.
+ * - "Before saying the store doesn't carry something…": it answered from guesses.
+ * - "Never add materials, sizes, colors…": it invented details ("cotton-blend").
+ * - "Quote prices exactly as given in priceFormatted…": precaution; no price math by the model.
+ * - "Don't repeat them as lists or tables…": it re-rendered products as Markdown tables with images.
+ */
 export const SHOPPING_AGENT_INSTRUCTIONS = `You are the shopping assistant of Ship It Shop, an online store for developer merchandise.
 
 Scope:

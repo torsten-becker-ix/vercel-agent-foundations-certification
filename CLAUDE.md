@@ -85,6 +85,7 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
 - `withWorkflow` (`next.config.mjs`) generates `app/.well-known/workflow/v1/*` (git-ignored by its own `.gitignore`) and a `.swc/` cache; both are excluded from ESLint/Prettier. Don't add `.well-known/workflow` to the `proxy.ts` matcher.
 - `pnpm-workspace.yaml`: `allowBuilds` for `@swc/core`, `esbuild`, `cbor-extract` (needed by `workflow`, pnpm 12 blocks install scripts otherwise), plus `minimumReleaseAgeExclude` for the pinned `ai@7.0.170` family.
 - Model: `openai/gpt-oss-120b` for both agents, including the submission (free-tier Gateway credits exclude Anthropic models). One constant per agent.
+- Model-specific code is tagged `gpt-oss workaround:` (`grep -rn "gpt-oss workaround" lib components app`). Review these when changing the model; add the tag to every new one.
 - AI Gateway routing: `SHOPPING_AGENT_PROVIDER_OPTIONS` in `lib/agent.ts` restricts gpt-oss-120b to tested providers (Together AI broke tool-call parsing). Free-tier credits are rate-limited (429); the AI SDK retries those.
 - Changing `lib/agent.ts` alone doesn't always rebuild the workflow bundle in dev ("Compiled workflows in 0ms"); `touch lib/workflows/chat-flow.ts` forces it.
 - Adding AI Elements components: **don't** run `ai-elements` with flags (`--help` installs *everything*). Fetch `https://elements.ai-sdk.dev/api/registry/<name>.json`, write `files[].content` to its `target`, and replace `@/registry/default/ui/` with `@/components/ui/`. Then fix strict-mode type errors (type-only).

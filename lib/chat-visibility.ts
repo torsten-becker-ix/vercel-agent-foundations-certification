@@ -5,7 +5,8 @@ import { isToolUIPart, type UIMessage } from "ai";
  *
  * A message is split into model steps at `step-start` parts. Text written in a
  * step that also calls tools was produced before the tool results existed
- * (open-weight models sometimes guess there), so only text from steps without
+ * (gpt-oss workaround: gpt-oss-120b guessed there, e.g. an invented product
+ * and price), so only text from steps without
  * tool calls is shown. The final answer is always such a step.
  */
 export function answerTextIndexes(
