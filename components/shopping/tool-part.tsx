@@ -2,6 +2,7 @@ import {
   AlertCircleIcon,
   CheckIcon,
   CircleSlashIcon,
+  ClockIcon,
   SearchXIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -9,6 +10,11 @@ import type { ReactNode } from "react";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { ProductDetailsCard } from "@/components/shopping/product-details-card";
 import { ProductResults } from "@/components/shopping/product-results";
+import {
+  ReturnApprovalCard,
+  ReturnDecisionCard,
+  ReturnFiledCard,
+} from "@/components/shopping/return-cards";
 import type { ShoppingMessagePart } from "@/lib/chat-types";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +73,12 @@ function runningLabel(part: ShoppingToolPart): string {
     }
     case "tool-getProductDetails":
       return "Loading product details…";
+    case "tool-returnOrder":
+      return part.state === "approval-responded"
+        ? "Filing your return…"
+        : "Checking your order…";
+    case "tool-getReturnStatus":
+      return "Checking your return…";
   }
 }
 
@@ -78,6 +90,10 @@ function failedLabel(part: ShoppingToolPart): string {
       return "Product search failed.";
     case "tool-getProductDetails":
       return "Couldn't load product details.";
+    case "tool-returnOrder":
+      return "The return couldn't be filed.";
+    case "tool-getReturnStatus":
+      return "Couldn't check the return.";
   }
 }
 
@@ -138,6 +154,53 @@ function Outcome({
         <ProductDetailsCard product={output.product} stock={output.stock} />
       );
     }
+    case "tool-returnOrder": {
+      const { output } = part;
+      switch (output.status) {
+        case "filed":
+          return (
+            <ReturnFiledCard items={output.items} orderId={output.orderId} />
+          );
+        case "not_found":
+          return (
+            <StatusLine icon={<SearchXIcon />} tone="warning">
+              Order #{output.orderId} not found
+            </StatusLine>
+          );
+        case "not_eligible":
+          return (
+            <StatusLine icon={<AlertCircleIcon />} tone="warning">
+              Order #{output.orderId} can&apos;t be returned:{" "}
+              {output.explanation}
+            </StatusLine>
+          );
+      }
+    }
+    case "tool-getReturnStatus": {
+      const { output } = part;
+      switch (output.status) {
+        case "done":
+          return <ReturnDecisionCard outcome={output.outcome} />;
+        case "processing":
+          return (
+            <StatusLine icon={<ClockIcon />}>
+              The return is still being reviewed.
+            </StatusLine>
+          );
+        case "failed":
+          return (
+            <StatusLine icon={<AlertCircleIcon />} tone="error">
+              Processing the return failed.
+            </StatusLine>
+          );
+        case "not_found":
+          return (
+            <StatusLine icon={<SearchXIcon />} tone="warning">
+              No return found for that reference.
+            </StatusLine>
+          );
+      }
+    }
   }
 }
 
@@ -158,17 +221,35 @@ export function ToolPart({
   isStreaming: boolean;
 }) {
   switch (part.state) {
+    case "approval-requested":
+      // Waiting for the shopper (the run has ended), so not "Stopped".
+      if (part.type === "tool-returnOrder") {
+        return (
+          <ReturnApprovalCard
+            approvalId={part.approval.id}
+            orderId={part.input.orderId}
+            reason={part.input.reason}
+          />
+        );
+      }
+      return <Running>{runningLabel(part)}</Running>;
     case "input-streaming":
     case "input-available":
-    case "approval-requested":
     case "approval-responded":
       return isStreaming ? (
         <Running>{runningLabel(part)}</Running>
       ) : (
         <StatusLine icon={<CircleSlashIcon />}>Stopped</StatusLine>
       );
-    case "output-error":
     case "output-denied":
+      return part.type === "tool-returnOrder" ? (
+        <StatusLine icon={<CircleSlashIcon />}>
+          Return not filed: you declined.
+        </StatusLine>
+      ) : (
+        <StatusLine icon={<CircleSlashIcon />}>Cancelled</StatusLine>
+      );
+    case "output-error":
       return (
         <StatusLine icon={<AlertCircleIcon />} tone="error">
           {failedLabel(part)}

@@ -18,18 +18,29 @@
  * data. Prices are integer cents plus a pre-formatted `priceFormatted`.
  */
 import { tool } from "ai";
-import { FatalError } from "workflow";
+import { getRun, start } from "workflow/api";
 import { z } from "zod";
 
 import {
-  ApiRequestError,
   getCategories,
   getProductById,
   getProductStock,
   getProductsPage,
 } from "./api";
 import { formatPrice } from "./format";
+import { lookupReturnCheck, type ReturnCheck } from "./return-check";
+import {
+  type OrderItemSummary,
+  orderIdSchema,
+  returnReasonSchema,
+  type ReturnOutcome,
+} from "./returns";
+import { isApiStatus, rethrow } from "./tool-errors";
 import type { Product } from "./types";
+
+export type { ReturnCheck } from "./return-check";
+export { isTransientApiError } from "./tool-errors";
+import { returnFlow } from "./workflows/return-flow";
 
 export const SEARCH_DEFAULT_LIMIT = 12;
 export const SEARCH_MAX_LIMIT = 24;
@@ -161,29 +172,6 @@ export type SearchProductsInput = z.output<typeof searchProductsInputSchema>;
 export type GetProductDetailsInput = z.output<
   typeof getProductDetailsInputSchema
 >;
-
-// ---------------------------------------------------------------------------
-// Error mapping
-// ---------------------------------------------------------------------------
-
-function isApiStatus(error: unknown, status: number): error is ApiRequestError {
-  return error instanceof ApiRequestError && error.status === status;
-}
-
-/** Transient = worth retrying: network failure (status 0), rate limit, 5xx. */
-export function isTransientApiError(error: unknown): boolean {
-  if (!(error instanceof ApiRequestError)) return true;
-  return error.status === 0 || error.status === 429 || error.status >= 500;
-}
-
-/** Re-throws transient errors (step retry) and wraps the rest as non-retryable. */
-function rethrow(error: unknown, action: string): never {
-  if (isTransientApiError(error)) throw error;
-  const status = error instanceof ApiRequestError ? error.status : "unknown";
-  throw new FatalError(
-    `${action} was rejected by the store API (status ${String(status)}).`,
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Mapping
@@ -352,6 +340,91 @@ export async function getProductDetailsStep(
 }
 
 // ---------------------------------------------------------------------------
+// Returns
+// ---------------------------------------------------------------------------
+
+export const returnOrderInputSchema = z.object({
+  orderId: orderIdSchema.describe("The shopper's order number, e.g. '11111'."),
+  reason: returnReasonSchema.describe(
+    "Why the shopper returns the order, in their words (3–500 characters).",
+  ),
+});
+
+export const getReturnStatusInputSchema = z.object({
+  returnRunId: z
+    .string()
+    .trim()
+    .regex(/^wrun_[0-9A-Z]{26}$/)
+    .describe("The returnRunId from the returnOrder result."),
+});
+
+export type ReturnOrderInput = z.output<typeof returnOrderInputSchema>;
+export type GetReturnStatusInput = z.output<typeof getReturnStatusInputSchema>;
+
+export type ReturnOrderResult =
+  | {
+      status: "filed";
+      orderId: string;
+      /** Id of the return workflow run, for getReturnStatus. */
+      returnRunId: string;
+      items: OrderItemSummary[];
+    }
+  | Exclude<ReturnCheck, { status: "eligible" }>;
+
+export type GetReturnStatusResult =
+  | { status: "processing"; returnRunId: string }
+  | { status: "done"; returnRunId: string; outcome: ReturnOutcome }
+  | { status: "failed"; returnRunId: string }
+  | { status: "not_found"; returnRunId: string };
+
+/** Workflow step wrapper around `lookupReturnCheck` (retried, persisted). */
+export async function checkReturnStep(orderId: string): Promise<ReturnCheck> {
+  "use step";
+  return lookupReturnCheck(orderId);
+}
+
+/**
+ * Runs in the workflow (no "use step"): `start()` here is step-backed and
+ * deterministic, so a replayed chat run never starts the return twice. The
+ * return runs as its own workflow and doesn't block the chat; the shopper is
+ * told right away that it was filed.
+ */
+export async function returnOrderExecute(
+  input: ReturnOrderInput,
+): Promise<ReturnOrderResult> {
+  const check = await checkReturnStep(input.orderId);
+  if (check.status !== "eligible") return check;
+  const run = await start(returnFlow, [
+    { orderId: check.orderId, reason: input.reason },
+  ]);
+  return {
+    status: "filed",
+    orderId: check.orderId,
+    returnRunId: run.runId,
+    items: check.items,
+  };
+}
+
+export async function getReturnStatusStep(
+  input: GetReturnStatusInput,
+): Promise<GetReturnStatusResult> {
+  "use step";
+  const { returnRunId } = input;
+  const run = getRun<ReturnOutcome>(returnRunId);
+  if (!(await run.exists)) return { status: "not_found", returnRunId };
+  switch (await run.status) {
+    case "completed":
+      return { status: "done", returnRunId, outcome: await run.returnValue };
+    case "failed":
+    case "cancelled":
+      return { status: "failed", returnRunId };
+    case "pending":
+    case "running":
+      return { status: "processing", returnRunId };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Tool set
 // ---------------------------------------------------------------------------
 
@@ -373,5 +446,22 @@ export const shoppingTools = {
       "Get full details for one product: description, price, all images, tags and live stock. Use the id or slug from searchProducts. `not_found` means the product doesn't exist.",
     inputSchema: getProductDetailsInputSchema,
     execute: getProductDetailsStep,
+  }),
+  returnOrder: tool({
+    description:
+      "Return all items of a delivered order. Needs the order number and the shopper's reason. The shopper confirms with a button before anything happens. Results: `filed` (return started; the decision follows in about a minute), `not_eligible` (with explanation) or `not_found`.",
+    inputSchema: returnOrderInputSchema,
+    // Only eligible orders get an approval card; anything else is answered
+    // directly by execute (not_found / not_eligible), with nothing to approve.
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- WorkflowAgent configures approval per tool via needsApproval (node_modules/ai/docs/03-agents/07-workflow-agent.mdx); call-level toolApproval is for ToolLoopAgent/streamText
+    needsApproval: async ({ orderId }) =>
+      (await checkReturnStep(orderId)).status === "eligible",
+    execute: returnOrderExecute,
+  }),
+  getReturnStatus: tool({
+    description:
+      "Check a filed return: `processing`, `done` with the decision (approved with refund, rejected, or needs more info), or `failed`.",
+    inputSchema: getReturnStatusInputSchema,
+    execute: getReturnStatusStep,
   }),
 };

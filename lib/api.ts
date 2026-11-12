@@ -56,7 +56,8 @@ interface CreateReturnInput {
   orderId: string;
   items: { productId: string; quantity: number }[];
   reason: string;
-  callback?: string; // used in phase 3
+  /** Webhook URL the API POSTs the decision to (a Workflow `createWebhook()` URL). */
+  callback?: string | undefined;
 }
 
 type ApiResult<T, M = { pagination?: PaginationMeta }> =
@@ -408,6 +409,12 @@ export async function createReturn(input: CreateReturnInput): Promise<Return> {
   return request<Return>("/returns", {
     method: "POST",
     body: input,
+    cache: "no-store",
+  });
+}
+
+export async function getReturn(id: string): Promise<Return> {
+  return request<Return>(`/returns/${encodeURIComponent(id)}`, {
     cache: "no-store",
   });
 }

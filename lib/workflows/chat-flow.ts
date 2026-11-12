@@ -7,6 +7,7 @@ import {
   SHOPPING_AGENT_MAX_STEPS,
   SHOPPING_AGENT_MODEL,
   SHOPPING_AGENT_PROVIDER_OPTIONS,
+  TOOL_APPROVAL_SECRET_ENV,
 } from "../agent";
 import { shoppingTools } from "../tools";
 
@@ -52,6 +53,9 @@ export async function shoppingChatFlow(messages: UIMessage[]) {
     instructions: SHOPPING_AGENT_INSTRUCTIONS,
     tools: shoppingTools,
     providerOptions: SHOPPING_AGENT_PROVIDER_OPTIONS,
+    experimental_toolApprovalSecret: {
+      environmentVariable: TOOL_APPROVAL_SECRET_ENV,
+    },
   });
 
   try {

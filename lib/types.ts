@@ -1,7 +1,7 @@
-export type OrderStatus =
-  "pending" | "paid" | "shipped" | "delivered" | "cancelled";
-export type ReturnStatus = "pending" | "approved" | "rejected" | "processed";
-export type ReturnDecision = "approved" | "rejected" | null;
+// Matches the store API's OpenAPI spec (verified against the live demo orders).
+export type OrderStatus = "paid" | "fulfilled" | "cancelled";
+export type ReturnStatus = "pending" | "processing" | "completed";
+export type ReturnDecision = "approved" | "rejected" | "needs_info";
 
 export const CATEGORY_SLUGS = [
   "bottles",
@@ -119,6 +119,8 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  /** Hydrated by `GET /orders/{id}`. */
+  product?: Product;
 }
 
 export interface Order {
@@ -222,9 +224,9 @@ export interface Return {
   callback: string | null;
   items: { productId: string; quantity: number }[];
   reason: string;
-  status: "pending" | "approved" | "rejected" | "processed";
+  status: ReturnStatus;
   scheduledFireAt: string;
-  decision: "approved" | "rejected" | null;
+  decision: ReturnDecision | null;
   refundAmount: number | null;
   notes: string | null;
   createdAt: string;
@@ -233,8 +235,8 @@ export interface Return {
   order?: {
     id: string;
     total: number;
-    status: string;
-  };
+    status: OrderStatus;
+  } | null;
 }
 
 export interface RefundPreauthorization {

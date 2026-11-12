@@ -47,6 +47,7 @@ The rule is the strictest available setting. Anything weaker must be listed unde
 | Not enabled: `explicit-function-return-type`, `explicit-module-boundary-types`, `naming-convention` | Style only, not safety. They fight React/Next conventions (components, route handlers) and the API's field names; strict TS already checks the inferred types. |
 | `components/agent-chat.tsx`: `WorkflowChatTransport` is cast to `ChatTransport` | Typing conflict between two Vercel packages under `exactOptionalPropertyTypes` (`@ai-sdk/workflow` declares `messageId?: string`, `ai` passes `string \| undefined`). Runtime contract identical; re-check on upgrades. |
 | `lib/chat-types.ts`: `Record<never, never>` data parts (inline disable of `no-generated-empty-object-type`) | Intentionally no custom data parts; it keeps the message-part union closed, so `switch` statements stay exhaustive. |
+| `@typescript-eslint/no-deprecated` disabled for `needsApproval` in `lib/tools.ts` | `ai` deprecates tool-level `needsApproval` in favour of call-level `toolApproval`, but `WorkflowAgent` documents tool-level `needsApproval` as its approval mechanism (`node_modules/ai/docs/03-agents/07-workflow-agent.mdx`). |
 | `react/no-array-index-key` disabled once in `components/shopping/chat-message.tsx` | Message parts are append-only and have no ids. |
 | Prettier ignores `*.md` | `CLAUDE.md` is partly rewritten by `next dev`; `README.md` is written once just before submission. |
 
@@ -76,6 +77,8 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
 - `API_BASE_URL` — optional. Defaults to `https://vercel-agentic-swag-store-api.vercel.app/api` in `lib/api.ts`.
 
 - `VERCEL_OIDC_TOKEN` — AI Gateway auth, written by `vercel env pull .env.local`; expires after 12 h.
+- `TOOL_APPROVAL_SECRET` — required for returns. HMAC key that signs tool approval requests (≥ 32 random bytes, `openssl rand -base64 48`). Locally in `.env.development.local`; on Vercel as **Sensitive** for Production + Preview.
+- `RETURN_FLOW_FAULT` — dev only, never on Vercel. `file-once` makes the return workflow's filing step fail on its first attempt, to demonstrate that completed side effects are not repeated.
 - `AI_GATEWAY_API_KEY` — optional alternative to OIDC. Keep it in `.env.development.local`, because `vercel env pull` overwrites `.env.local`.
 
 `.env.example` is the redacted template for new developers.
@@ -89,6 +92,7 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
 - AI Gateway routing: `SHOPPING_AGENT_PROVIDER_OPTIONS` in `lib/agent.ts` restricts gpt-oss-120b to tested providers (Together AI broke tool-call parsing). Free-tier credits are rate-limited (429); the AI SDK retries those.
 - Changing `lib/agent.ts` alone doesn't always rebuild the workflow bundle in dev ("Compiled workflows in 0ms"); `touch lib/workflows/chat-flow.ts` forces it.
 - Adding AI Elements components: **don't** run `ai-elements` with flags (`--help` installs *everything*). Fetch `https://elements.ai-sdk.dev/api/registry/<name>.json`, write `files[].content` to its `target`, and replace `@/registry/default/ui/` with `@/components/ui/`. Then fix strict-mode type errors (type-only).
+- Returns: `returnOrder` (tool, `needsApproval` = eligibility check, so impossible returns never get an approval card) → after Approve the next chat run starts `returnFlow` (`lib/workflows/return-flow.ts`) as its own workflow: lookup → notify → pre-authorize → file (with `createWebhook()` callback) → decision via webhook signal or polling `GET /returns/{id}` → notify. Approvals are HMAC-signed (`experimental_toolApprovalSecret`).
 - Inspect runs locally: `pnpm exec workflow inspect runs` / `pnpm exec workflow web`.
 
 ## Architecture

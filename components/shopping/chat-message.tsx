@@ -36,6 +36,8 @@ function MessagePart({
     case "tool-getAllCategories":
     case "tool-searchProducts":
     case "tool-getProductDetails":
+    case "tool-returnOrder":
+    case "tool-getReturnStatus":
       return (
         <ToolPart
           isStreaming={isStreaming}
