@@ -72,7 +72,17 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
 - `BYPASS_SECRET` — required. Sent as the `x-vercel-protection-bypass` header on every API call. Must never be exposed to the client (no `NEXT_PUBLIC_` prefix).
 - `API_BASE_URL` — optional. Defaults to `https://vercel-agentic-swag-store-api.vercel.app/api` in `lib/api.ts`.
 
+- `VERCEL_OIDC_TOKEN` — AI Gateway auth, written by `vercel env pull .env.local`; expires after 12 h.
+- `AI_GATEWAY_API_KEY` — optional alternative to OIDC. Keep it in `.env.development.local`, because `vercel env pull` overwrites `.env.local`.
+
 `.env.example` is the redacted template for new developers.
+
+### Agents and workflows
+
+- `withWorkflow` (`next.config.mjs`) generates `app/.well-known/workflow/v1/*` (git-ignored by its own `.gitignore`) and a `.swc/` cache; both are excluded from ESLint/Prettier. Don't add `.well-known/workflow` to the `proxy.ts` matcher.
+- `pnpm-workspace.yaml`: `allowBuilds` for `@swc/core`, `esbuild`, `cbor-extract` (needed by `workflow`, pnpm 12 blocks install scripts otherwise), plus `minimumReleaseAgeExclude` for the pinned `ai@7.0.170` family.
+- Model: `openai/gpt-oss-120b` during development (free-tier Gateway credits exclude Anthropic models); switch to `anthropic/claude-sonnet-5.5` before submission.
+- Inspect runs locally: `pnpm exec workflow inspect runs` / `pnpm exec workflow web`.
 
 ## Architecture
 

@@ -1,0 +1,10 @@
+allowBuilds:
+  "@swc/core": true
+  cbor-extract: true
+  esbuild: true
+minimumReleaseAgeExclude:
+  - "@ai-sdk/gateway@4.0.143"
+  - "@ai-sdk/mcp@2.0.97"
+  - "@ai-sdk/react@4.0.174"
+  - "@ai-sdk/workflow@2.0.102"
+  - ai@7.0.170
