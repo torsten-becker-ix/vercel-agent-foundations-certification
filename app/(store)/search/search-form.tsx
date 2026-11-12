@@ -46,13 +46,18 @@ export function SearchForm({
   const [category, setCategory] = useState(initialCategory)
   const [isPending, startTransition] = useTransition()
 
-  // Stay in sync if the URL changes via Back/Forward.
-  useEffect(() => {
-    setQuery(initialQuery)
-  }, [initialQuery])
-  useEffect(() => {
-    setCategory(initialCategory)
-  }, [initialCategory])
+  // Stay in sync if the URL changes via Back/Forward. Adjusting state during
+  // render (instead of in an effect) avoids an extra render pass:
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevInitial, setPrevInitial] = useState({ initialQuery, initialCategory })
+  if (
+    prevInitial.initialQuery !== initialQuery ||
+    prevInitial.initialCategory !== initialCategory
+  ) {
+    setPrevInitial({ initialQuery, initialCategory })
+    if (prevInitial.initialQuery !== initialQuery) setQuery(initialQuery)
+    if (prevInitial.initialCategory !== initialCategory) setCategory(initialCategory)
+  }
 
   // Auto-search after >= 3 chars (or when cleared), debounced.
   useEffect(() => {

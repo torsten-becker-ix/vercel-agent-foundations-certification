@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { useSidebar } from "@/components/ui/sidebar"
 
@@ -9,10 +9,6 @@ export const CHAT_PARAM = "chat"
 const CHAT_VALUE = "open"
 // Class on <html> that suppresses the panel's slide animation (see globals.css).
 const BOOT_CLASS = "agent-panel-booting"
-
-// useLayoutEffect on the client, no-op on the server (avoids the SSR warning).
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? useLayoutEffect : useEffect
 
 function paramPresent() {
   return new URLSearchParams(window.location.search).has(CHAT_PARAM)
@@ -33,23 +29,25 @@ export function AgentPanelSync() {
   const pathname = usePathname()
 
   // setOpen / setOpenMobile identities change whenever the sidebar state
-  // changes (their useCallback dep is `open`), so keep them in a ref to leave
-  // the mount/popstate effect's deps empty. (useLatest pattern.)
-  const latest = useRef({ setOpen, setOpenMobile })
-  latest.current = { setOpen, setOpenMobile }
+  // changes (their useCallback dep is `open`). An Effect Event always sees the
+  // latest ones without becoming a dependency, so the mount/popstate effects
+  // keep empty deps. isMobile is false until after mount, so set both states.
+  const applyOpen = useEffectEvent((next: boolean) => {
+    setOpen(next)
+    setOpenMobile(next)
+  })
 
   const effectiveOpen = isMobile ? openMobile : open
 
   // URL -> state on mount. Runs before the first client paint and suppresses
   // the slide animation, so a refresh with ?chat=open shows the panel already
   // open with no animation. (The server always renders it closed.)
-  useIsomorphicLayoutEffect(() => {
+  // (React 19 no longer warns about useLayoutEffect during SSR; it just doesn't run there.)
+  useLayoutEffect(() => {
     if (!paramPresent()) return
     const root = document.documentElement
     root.classList.add(BOOT_CLASS)
-    // isMobile is false until after mount, so prime both states.
-    latest.current.setOpen(true)
-    latest.current.setOpenMobile(true)
+    applyOpen(true)
     // Re-enable transitions once the open state has painted.
     const raf = requestAnimationFrame(() =>
       requestAnimationFrame(() => root.classList.remove(BOOT_CLASS)),
@@ -62,11 +60,7 @@ export function AgentPanelSync() {
 
   // Keep the panel in sync with the URL on back/forward navigation.
   useEffect(() => {
-    const sync = () => {
-      const present = paramPresent()
-      latest.current.setOpen(present)
-      latest.current.setOpenMobile(present)
-    }
+    const sync = () => applyOpen(paramPresent())
     window.addEventListener("popstate", sync)
     return () => window.removeEventListener("popstate", sync)
   }, [])

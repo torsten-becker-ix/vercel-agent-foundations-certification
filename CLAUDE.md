@@ -9,9 +9,20 @@ Package manager is **pnpm** (see `pnpm-lock.yaml`).
 - `pnpm dev` — start the Next.js dev server on http://localhost:3000
 - `pnpm build` — production build
 - `pnpm start` — serve the production build
-- `pnpm lint` — wired but `eslint` is not installed; the script will fail until a linter is added
+- `pnpm lint` — ESLint 9 flat config (`eslint.config.mjs`: `eslint-config-next` core-web-vitals + typescript). Vendored code (`components/ui/**`, `components/ai-elements/**`, shadcn hooks) is ignored. Prefix intentionally unused bindings with `_`.
+- `pnpm typecheck` — `tsc --noEmit`
+- `pnpm test` / `pnpm test:watch` — Vitest (`vitest.config.mts`, Node environment, `@/` alias). Tests live next to the code as `*.test.ts(x)`. `server-only` is stubbed in tests.
+- `pnpm check` — lint + typecheck + test. **Run before every commit.**
 
-There is no test framework wired up.
+## Best-practice skills
+
+Vercel's agent skills are vendored in `.agents/skills/` (pinned in `skills-lock.json`) and exposed to Claude Code via the `.claude/skills` symlink:
+
+- `next-best-practices` — RSC boundaries, route handlers, data patterns, error handling, runtime selection
+- `vercel-react-best-practices` — React/Next.js performance rules
+- `web-design-guidelines` — accessibility and UI review (use for the chat UIs)
+
+Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows, and Sandbox, check current docs rather than relying on memory.
 
 ## Stack
 
@@ -37,7 +48,7 @@ The storefront brand is **Ship It Shop** (metadata, header, homepage copy). The 
 ### Data layer (`lib/`)
 
 - `lib/types.ts` — pure type module re-exporting the API schemas (`Product`, `CartWithProducts`, `CartItemWithProduct`, `Promotion`, `Category`, `StockInfo`, `StoreConfig`). Both server and client modules import from here. Also exports the `CATEGORY_SLUGS` const tuple used by the category filter.
-- `lib/api.ts` — typed `fetch` wrapper. Functions: `getProducts`, `getProductById`, `getProductStock`, `getCategories`, `getPromotion`, `getStoreConfig`, `cartCreate`, `cartGet`, `cartAdd`, `cartUpdate`, `cartRemove`. **Server-only** by convention (reads `process.env.VERCEL_PROTECTION_BYPASS_SECRET`). Throws `ApiRequestError` on non-200/`success:false` responses.
+- `lib/api.ts` — typed `fetch` wrapper. Functions: `getProducts`, `getProductById`, `getProductStock`, `getCategories`, `getPromotion`, `getStoreConfig`, `cartCreate`, `cartGet`, `cartAdd`, `cartUpdate`, `cartRemove`. **Server-only**, enforced by `import "server-only"` (reads `process.env.BYPASS_SECRET`). Throws `ApiRequestError` on non-200/`success:false` responses.
 - `lib/cart-token.ts` — `getOrCreateCartToken()`/`getCartToken()`/`clearCartToken()` using `next/headers`. Stores the API-issued cart UUID in an `httpOnly` cookie `cart_token` with a 30-day max-age.
 - `lib/cart-actions.ts` — `'use server'` actions: `getCartAction`, `addToCartAction`, `updateCartItemAction`, `removeCartItemAction`, `getProductStockAction`. Each cart mutation calls the API and `revalidateTag('cart')`. The first add lazily creates the cart on the server.
 - `lib/format.ts` — `formatPrice(cents, currency)` using `Intl.NumberFormat`. **API prices are integers in cents**, so always pass them through this helper.
@@ -75,7 +86,17 @@ Everything else (`Header`, `Footer`, `ProductCard`, `ProductGrid`, `PromoBanner`
 
 ### Configuration quirks
 
-- `next.config.mjs` keeps `typescript.ignoreBuildErrors: true` and `images.unoptimized: true`. `images.remotePatterns` is whitelisted for `**.public.blob.vercel-storage.com` and `**.vercel-storage.com` (where API product images live); add hostnames here if the API ever returns images from a new domain.
+- `next.config.mjs` no longer sets `typescript.ignoreBuildErrors` — type errors fail the build. `images.remotePatterns` is whitelisted for `**.public.blob.vercel-storage.com` and `**.vercel-storage.com` (where API product images live); add hostnames here if the API ever returns images from a new domain.
 - `@vercel/analytics` only mounts when `NODE_ENV === 'production'` (see `app/layout.tsx`).
-- The repo is linked to v0 (`https://v0.app/chat/projects/prj_X7UGePkFlLC33RuxWiTZySFDcSzO`); merges to `main` auto-deploy via Vercel. v0 may push commits directly. When deploying, set `VERCEL_PROTECTION_BYPASS_SECRET` in the Vercel project's environment variables.
+- The repo is linked to v0 (`https://v0.app/chat/projects/prj_X7UGePkFlLC33RuxWiTZySFDcSzO`); merges to `main` auto-deploy via Vercel. v0 may push commits directly. When deploying, set `BYPASS_SECRET` (and `API_BASE_URL`) in the Vercel project's environment variables.
 - The root layout is intentionally synchronous so it doesn't opt routes out of static. `pnpm build` should report `/` as `○` (Static), `/products/[param]` as `●` (SSG), and `/search` as `ƒ` (Dynamic). If you ever convert the layout to `async function` and `await` something that uses `cookies()`/`headers()`/`searchParams`, you will silently switch every route back to dynamic — verify the build output after layout changes.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

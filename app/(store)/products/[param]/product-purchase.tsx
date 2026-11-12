@@ -24,7 +24,10 @@ export function ProductPurchase({ product }: ProductPurchaseProps) {
     const tick = async () => {
       try {
         const next = await getProductStockAction(product.id)
-        if (!cancelled) setStock(next)
+        if (cancelled) return
+        setStock(next)
+        // Clamp the selected quantity if reported stock drops below it.
+        if (next.stock > 0) setQuantity((q) => Math.min(q, next.stock))
       } catch {
         // Keep last known stock; failure is rare and the user can retry.
       }
@@ -36,13 +39,6 @@ export function ProductPurchase({ product }: ProductPurchaseProps) {
       clearInterval(id)
     }
   }, [product.id])
-
-  // Clamp the selected quantity if reported stock drops below it.
-  useEffect(() => {
-    if (stock && stock.stock > 0 && quantity > stock.stock) {
-      setQuantity(stock.stock)
-    }
-  }, [stock, quantity])
 
   const isLoadingStock = stock === null
   const isOutOfStock = !isLoadingStock && !stock.inStock
