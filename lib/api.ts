@@ -273,6 +273,18 @@ export async function getProducts(
   });
 }
 
+/** Like `getProducts`, but also returns the pagination metadata (for agent tools). */
+export async function getProductsPage(
+  params: GetProductsParams = {},
+): Promise<{ products: Product[]; pagination: PaginationMeta }> {
+  const path = withQuery("/products", params);
+  const { data, meta } = await requestWithMeta<
+    Product[],
+    { pagination: PaginationMeta }
+  >(path, { next: { revalidate: DEFAULT_REVALIDATE, tags: ["products"] } });
+  return { products: data, pagination: meta.pagination };
+}
+
 export async function getProductById(idOrSlug: string): Promise<Product> {
   return request<Product>(`/products/${encodeURIComponent(idOrSlug)}`, {
     next: {
