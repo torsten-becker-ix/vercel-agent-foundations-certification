@@ -23,7 +23,7 @@ const EMPTY_CART: CartWithProducts = {
 
 export async function getCartAction(): Promise<CartWithProducts> {
   const token = await getCartToken()
-  if (!token) return EMPTY_CART
+  if (token === undefined) return EMPTY_CART
   try {
     return await cartGet(token)
   } catch {
@@ -33,7 +33,7 @@ export async function getCartAction(): Promise<CartWithProducts> {
 
 export async function addToCartAction(
   productId: string,
-  quantity: number = 1,
+  quantity = 1,
 ): Promise<CartWithProducts> {
   const token = await getOrCreateCartToken()
   const cart = await cartAdd(token, productId, quantity)
@@ -46,7 +46,7 @@ export async function updateCartItemAction(
   quantity: number,
 ): Promise<CartWithProducts> {
   const token = await getCartToken()
-  if (!token) return EMPTY_CART
+  if (token === undefined) return EMPTY_CART
   const cart = await cartUpdate(token, productId, quantity)
   updateTag("cart")
   return cart
@@ -56,7 +56,7 @@ export async function removeCartItemAction(
   productId: string,
 ): Promise<CartWithProducts> {
   const token = await getCartToken()
-  if (!token) return EMPTY_CART
+  if (token === undefined) return EMPTY_CART
   const cart = await cartRemove(token, productId)
   updateTag("cart")
   return cart

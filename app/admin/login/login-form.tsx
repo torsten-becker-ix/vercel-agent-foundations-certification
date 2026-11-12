@@ -21,12 +21,9 @@ export function LoginForm({ hasError }: LoginFormProps) {
           type="password"
           autoComplete="current-password"
           required
-          autoFocus
         />
       </div>
-      {hasError && (
-        <p className="text-sm text-destructive">Incorrect password.</p>
-      )}
+      {hasError ? <p className="text-sm text-destructive">Incorrect password.</p> : null}
       <SubmitButton />
     </form>
   );

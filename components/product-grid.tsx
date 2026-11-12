@@ -13,7 +13,7 @@ export function ProductGrid({ products, priorityFirst = false }: ProductGridProp
         <ProductCard
           key={product.id}
           product={product}
-          priority={priorityFirst && i === 0}
+          priority={priorityFirst ? i === 0 : false}
         />
       ))}
     </div>

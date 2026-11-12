@@ -73,16 +73,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-12">
         <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-secondary">
-          {image && (
-            <Image
+          {image !== undefined ? <Image
               src={image}
               alt={product.name}
               fill
               priority
               sizes="(min-width: 1024px) 50vw, 100vw"
               className="object-cover"
-            />
-          )}
+            /> : null}
         </div>
 
         <div className="flex flex-col">

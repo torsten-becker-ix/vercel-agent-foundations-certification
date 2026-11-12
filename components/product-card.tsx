@@ -16,16 +16,14 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
       className="group block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-foreground/20"
     >
       <div className="relative aspect-square overflow-hidden bg-secondary">
-        {image && (
-          <Image
+        {image !== undefined ? <Image
             src={image}
             alt={product.name}
             fill
             priority={priority}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        )}
+          /> : null}
       </div>
       <div className="p-4">
         <h3 className="text-sm font-medium text-foreground">{product.name}</h3>

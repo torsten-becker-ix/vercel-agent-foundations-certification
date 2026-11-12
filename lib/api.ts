@@ -75,8 +75,8 @@ function withBypass(path: string): string {
 
 export class ApiRequestError extends Error {
   status: number;
-  code?: string;
-  details?: unknown;
+  code: string | undefined;
+  details: unknown;
   constructor(
     status: number,
     code: string | undefined,
@@ -99,13 +99,13 @@ async function request<T>(
   const headers: Record<string, string> = {
     "x-vercel-protection-bypass": PROTECTION_BYPASS,
   };
-  if (cartToken) headers["x-cart-token"] = cartToken;
+  if (cartToken !== undefined && cartToken !== "") headers["x-cart-token"] = cartToken;
   if (body !== undefined) headers["content-type"] = "application/json";
 
   const init: RequestInit & { next?: RequestOptions["next"] } = {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...(body !== undefined && { body: JSON.stringify(body) }),
   };
   if (cache) init.cache = cache;
   if (next) init.next = next;
@@ -130,12 +130,12 @@ async function request<T>(
     // ignore — handled below
   }
 
-  if (!res.ok || !json || json.success === false) {
-    const apiErr = json && json.success === false ? json.error : undefined;
+  if (!res.ok || !json?.success) {
+    const apiErr = json && !json.success ? json.error : undefined;
     const error = new ApiRequestError(
       res.status,
       apiErr?.code,
-      apiErr?.message ?? `API request failed: ${res.status} ${path}`,
+      apiErr?.message ?? `API request failed: ${String(res.status)} ${path}`,
       apiErr?.details,
     );
     // Expected 404s (e.g. no active promotion) are swallowed by callers; don't
@@ -156,6 +156,9 @@ async function request<T>(
 // Variant of `request` that returns both `data` and `meta`. Used by
 // back-office endpoints whose `meta` carries information you actually want
 // (date windows, aggregate totals, pagination) rather than just bookkeeping.
+// The API response shape is trusted (typed from the store's OpenAPI spec), so the
+// caller picks `T`/`M`. Runtime validation happens at the agent tool boundary.
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- return-type-only generics by design (see comment above)
 async function requestWithMeta<T, M>(
   path: string,
   options: RequestOptions = {},
@@ -165,13 +168,13 @@ async function requestWithMeta<T, M>(
   const headers: Record<string, string> = {
     "x-vercel-protection-bypass": PROTECTION_BYPASS,
   };
-  if (cartToken) headers["x-cart-token"] = cartToken;
+  if (cartToken !== undefined && cartToken !== "") headers["x-cart-token"] = cartToken;
   if (body !== undefined) headers["content-type"] = "application/json";
 
   const init: RequestInit & { next?: RequestOptions["next"] } = {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...(body !== undefined && { body: JSON.stringify(body) }),
   };
   if (cache) init.cache = cache;
   if (next) init.next = next;
@@ -196,12 +199,12 @@ async function requestWithMeta<T, M>(
     // ignore — handled below
   }
 
-  if (!res.ok || !json || json.success === false) {
-    const apiErr = json && json.success === false ? json.error : undefined;
+  if (!res.ok || !json?.success) {
+    const apiErr = json && !json.success ? json.error : undefined;
     const error = new ApiRequestError(
       res.status,
       apiErr?.code,
-      apiErr?.message ?? `API request failed: ${res.status} ${path}`,
+      apiErr?.message ?? `API request failed: ${String(res.status)} ${path}`,
       apiErr?.details,
     );
     if (res.status !== 404) {
@@ -230,27 +233,40 @@ async function requestWithMeta<T, M>(
   return { data: json.data, meta: json.meta };
 }
 
+type QueryValue = string | number | boolean | readonly string[] | undefined;
+
+// Builds `path?query` from a params object whose keys are the API's query names.
+// `undefined`, empty strings and empty arrays are omitted; arrays are comma-joined.
+function withQuery<P extends { readonly [K in keyof P]: QueryValue }>(
+  path: string,
+  params: P,
+): string {
+  const qs = new URLSearchParams();
+  // Object.entries loses P's value type through the generic; the constraint guarantees it.
+  for (const [key, value] of Object.entries<QueryValue>(params)) {
+    if (value === undefined || value === "") continue;
+    if (typeof value === "object") {
+      if (value.length > 0) qs.set(key, value.join(","));
+      continue;
+    }
+    qs.set(key, String(value));
+  }
+  const query = qs.toString();
+  return query === "" ? path : `${path}?${query}`;
+}
+
 export interface GetProductsParams {
-  page?: number;
-  limit?: number;
-  category?: CategorySlug | string;
-  search?: string;
-  featured?: boolean;
+  page?: number | undefined;
+  limit?: number | undefined;
+  category?: CategorySlug | (string & {}) | undefined;
+  search?: string | undefined;
+  featured?: boolean | undefined;
 }
 
 export async function getProducts(
   params: GetProductsParams = {},
 ): Promise<Product[]> {
-  console.log("[getProducts]", params);
-  const qs = new URLSearchParams();
-  if (params.page) qs.set("page", String(params.page));
-  if (params.limit) qs.set("limit", String(params.limit));
-  if (params.category) qs.set("category", params.category);
-  if (params.search) qs.set("search", params.search);
-  if (params.featured !== undefined)
-    qs.set("featured", params.featured ? "true" : "false");
-
-  const path = qs.toString() ? `/products?${qs}` : "/products";
+  const path = withQuery("/products", params);
   return request<Product[]>(path, {
     next: { revalidate: DEFAULT_REVALIDATE, tags: ["products"] },
   });
@@ -266,7 +282,6 @@ export async function getProductById(idOrSlug: string): Promise<Product> {
 }
 
 export async function getCategories(): Promise<Category[]> {
-  console.log("[getCategories]");
   return request<Category[]>("/categories", {
     next: { revalidate: DEFAULT_REVALIDATE, tags: ["categories"] },
   });
@@ -310,7 +325,7 @@ export async function cartCreate(): Promise<{
     throw new ApiRequestError(
       res.status,
       undefined,
-      `cartCreate failed: ${res.status}`,
+      `cartCreate failed: ${String(res.status)}`,
     );
   }
   const token = res.headers.get("x-cart-token") ?? "";
@@ -336,7 +351,7 @@ export async function cartGet(token: string): Promise<CartWithProducts> {
 export async function cartAdd(
   token: string,
   productId: string,
-  quantity: number = 1,
+  quantity = 1,
 ): Promise<CartWithProducts> {
   return request<CartWithProducts>("/cart", {
     method: "POST",
@@ -384,8 +399,10 @@ export async function createReturn(input: CreateReturnInput): Promise<Return> {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/require-await -- stand-in for an async email-provider call
 export async function notifyReturnInProcess(orderId: string): Promise<void> {
   // In production this would hit your email provider.
+  // eslint-disable-next-line no-console -- intentional stand-in for the customer email
   console.log(
     `[returnOrder] 📧 told customer their return for order ${orderId} is being processed`,
   );
@@ -411,28 +428,19 @@ export async function preauthorizeRefund(
 
 export interface GetBackOfficeReturnsParams {
   /** ISO 8601 datetime or YYYY-MM-DD. Defaults to 30 days before `to`. */
-  from?: string;
+  from?: string | undefined;
   /** ISO 8601 datetime or YYYY-MM-DD. Defaults to now. */
-  to?: string;
-  status?: BackOfficeReturnStatus;
-  decision?: BackOfficeReturnDecision;
+  to?: string | undefined;
+  status?: BackOfficeReturnStatus | undefined;
+  decision?: BackOfficeReturnDecision | undefined;
   /** 1–500, default 25. */
-  limit?: number;
+  limit?: number | undefined;
 }
 
 export async function getBackOfficeReturns(
   params: GetBackOfficeReturnsParams = {},
 ): Promise<{ data: Return[]; meta: BackOfficeDateRangeMeta }> {
-  const qs = new URLSearchParams();
-  if (params.from) qs.set("from", params.from);
-  if (params.to) qs.set("to", params.to);
-  if (params.status) qs.set("status", params.status);
-  if (params.decision) qs.set("decision", params.decision);
-  if (params.limit) qs.set("limit", String(params.limit));
-
-  const path = qs.toString()
-    ? `/back-office/returns?${qs}`
-    : "/back-office/returns";
+  const path = withQuery("/back-office/returns", params);
   return requestWithMeta<Return[], BackOfficeDateRangeMeta>(path, {
     cache: "no-store",
   });
@@ -440,33 +448,22 @@ export async function getBackOfficeReturns(
 
 export interface GetBackOfficeSupportTicketsParams {
   /** ISO 8601 datetime or YYYY-MM-DD. Defaults to 30 days before `to`. */
-  from?: string;
+  from?: string | undefined;
   /** ISO 8601 datetime or YYYY-MM-DD. Defaults to now. */
-  to?: string;
-  status?: SupportTicketStatus;
-  priority?: SupportTicketPriority;
-  category?: SupportTicketCategory;
+  to?: string | undefined;
+  status?: SupportTicketStatus | undefined;
+  priority?: SupportTicketPriority | undefined;
+  category?: SupportTicketCategory | undefined;
   /** Staff username (e.g. `alex`). Unassigned tickets are excluded when set. */
-  assignee?: string;
+  assignee?: string | undefined;
   /** 1–500, default 25. */
-  limit?: number;
+  limit?: number | undefined;
 }
 
 export async function getBackOfficeSupportTickets(
   params: GetBackOfficeSupportTicketsParams = {},
 ): Promise<{ data: SupportTicket[]; meta: BackOfficeDateRangeMeta }> {
-  const qs = new URLSearchParams();
-  if (params.from) qs.set("from", params.from);
-  if (params.to) qs.set("to", params.to);
-  if (params.status) qs.set("status", params.status);
-  if (params.priority) qs.set("priority", params.priority);
-  if (params.category) qs.set("category", params.category);
-  if (params.assignee) qs.set("assignee", params.assignee);
-  if (params.limit) qs.set("limit", String(params.limit));
-
-  const path = qs.toString()
-    ? `/back-office/support-tickets?${qs}`
-    : "/back-office/support-tickets";
+  const path = withQuery("/back-office/support-tickets", params);
   return requestWithMeta<SupportTicket[], BackOfficeDateRangeMeta>(path, {
     cache: "no-store",
   });
@@ -474,37 +471,21 @@ export async function getBackOfficeSupportTickets(
 
 export interface GetBackOfficeStockParams {
   /** Restrict to specific product IDs. Joined as a comma-separated list. */
-  productIds?: string[];
+  productIds?: string[] | undefined;
   /** When set, filters to (or excludes) products with 1–5 units in stock. */
-  lowStock?: boolean;
+  lowStock?: boolean | undefined;
   /** When set, filters to (or excludes) products with at least one unit. */
-  inStock?: boolean;
+  inStock?: boolean | undefined;
   /** 1-based page number, default 1. */
-  page?: number;
+  page?: number | undefined;
   /** 1–200, default 50. */
-  limit?: number;
+  limit?: number | undefined;
 }
 
 export async function getBackOfficeStock(
   params: GetBackOfficeStockParams = {},
 ): Promise<{ data: StockEntry[]; meta: BackOfficeStockMeta }> {
-  const qs = new URLSearchParams();
-  if (params.productIds && params.productIds.length > 0) {
-    qs.set("productIds", params.productIds.join(","));
-  }
-  // Spec defines lowStock/inStock as a string enum of "true"|"false".
-  if (params.lowStock !== undefined) {
-    qs.set("lowStock", params.lowStock ? "true" : "false");
-  }
-  if (params.inStock !== undefined) {
-    qs.set("inStock", params.inStock ? "true" : "false");
-  }
-  if (params.page) qs.set("page", String(params.page));
-  if (params.limit) qs.set("limit", String(params.limit));
-
-  const path = qs.toString()
-    ? `/back-office/inventory/stock?${qs}`
-    : "/back-office/inventory/stock";
+  const path = withQuery("/back-office/inventory/stock", params);
   return requestWithMeta<StockEntry[], BackOfficeStockMeta>(path, {
     cache: "no-store",
   });
@@ -512,24 +493,17 @@ export async function getBackOfficeStock(
 
 export interface GetBackOfficeSalesParams {
   /** ISO 8601 datetime or YYYY-MM-DD. Defaults to 30 days before `to`. */
-  from?: string;
+  from?: string | undefined;
   /** ISO 8601 datetime or YYYY-MM-DD. Defaults to now. */
-  to?: string;
+  to?: string | undefined;
   /** Restrict to a single product. 404 if it doesn't exist. */
-  productId?: string;
+  productId?: string | undefined;
 }
 
 export async function getBackOfficeSales(
   params: GetBackOfficeSalesParams = {},
 ): Promise<{ data: ProductSalesRow[]; meta: BackOfficeSalesMeta }> {
-  const qs = new URLSearchParams();
-  if (params.from) qs.set("from", params.from);
-  if (params.to) qs.set("to", params.to);
-  if (params.productId) qs.set("productId", params.productId);
-
-  const path = qs.toString()
-    ? `/back-office/analytics/sales?${qs}`
-    : "/back-office/analytics/sales";
+  const path = withQuery("/back-office/analytics/sales", params);
   return requestWithMeta<ProductSalesRow[], BackOfficeSalesMeta>(path, {
     cache: "no-store",
   });

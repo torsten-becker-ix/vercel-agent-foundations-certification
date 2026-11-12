@@ -138,8 +138,8 @@ export function CartProvider({ children }: CartProviderProps) {
     }
   }, [])
 
-  const openCart = useCallback(() => setIsOpen(true), [])
-  const closeCart = useCallback(() => setIsOpen(false), [])
+  const openCart = useCallback(() => { setIsOpen(true); }, [])
+  const closeCart = useCallback(() => { setIsOpen(false); }, [])
 
   const addToCart = useCallback(
     (product: Product, quantity: number) => {

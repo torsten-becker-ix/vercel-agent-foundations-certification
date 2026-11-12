@@ -46,8 +46,7 @@ async function FeaturedProducts() {
             </Link>
           </div>
 
-          {hero && hero.images[0] && (
-            <Link
+          {hero?.images[0] !== undefined ? <Link
               href={`/products/${hero.id}`}
               className="group relative mx-auto aspect-square w-full max-w-md overflow-hidden rounded-2xl bg-muted lg:mx-0"
             >
@@ -65,8 +64,7 @@ async function FeaturedProducts() {
                   {hero.name}
                 </p>
               </div>
-            </Link>
-          )}
+            </Link> : null}
         </div>
       </section>
 

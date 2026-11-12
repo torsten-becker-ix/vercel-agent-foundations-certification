@@ -2,7 +2,7 @@ import { getPromotion } from "@/lib/api"
 
 export async function PromoBanner() {
   const promo = await getPromotion()
-  if (!promo || !promo.active) return null
+  if (!promo?.active) return null
 
   return (
     <section className="bg-foreground text-background">
@@ -11,11 +11,9 @@ export async function PromoBanner() {
           {promo.title}
         </span>
         <span className="text-sm opacity-90">{promo.description}</span>
-        {promo.code && (
-          <span className="rounded-full border border-background/30 px-3 py-1 text-xs font-medium tracking-wider">
+        {promo.code ? <span className="rounded-full border border-background/30 px-3 py-1 text-xs font-medium tracking-wider">
             Code: {promo.code}
-          </span>
-        )}
+          </span> : null}
       </div>
     </section>
   )

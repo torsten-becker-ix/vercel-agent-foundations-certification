@@ -56,14 +56,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </div>
         ) : (
           <>
-            {isSearching && (
-              <p className="mt-4 text-sm text-muted-foreground">
+            {isSearching ? <p className="mt-4 text-sm text-muted-foreground">
                 Showing {products.length} result
                 {products.length === 1 ? "" : "s"}
                 {q ? ` for "${q}"` : ""}
                 {category ? ` in ${category}` : ""}
-              </p>
-            )}
+              </p> : null}
             <div className="mt-8">
               <ProductGrid products={products} />
             </div>

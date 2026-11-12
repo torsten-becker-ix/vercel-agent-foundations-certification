@@ -32,8 +32,8 @@ export function ProductPurchase({ product }: ProductPurchaseProps) {
         // Keep last known stock; failure is rare and the user can retry.
       }
     }
-    tick()
-    const id = setInterval(tick, STOCK_REFRESH_MS)
+    void tick()
+    const id = setInterval(() => void tick(), STOCK_REFRESH_MS)
     return () => {
       cancelled = true
       clearInterval(id)
@@ -86,8 +86,8 @@ export function ProductPurchase({ product }: ProductPurchaseProps) {
       </div>
 
       <div className="mt-8">
-        <label className="text-sm font-medium text-foreground">Quantity</label>
-        <div className="mt-2 flex items-center gap-3">
+        <span id="quantity-label" className="text-sm font-medium text-foreground">Quantity</span>
+        <div role="group" aria-labelledby="quantity-label" className="mt-2 flex items-center gap-3">
           <Button
             variant="outline"
             size="icon"

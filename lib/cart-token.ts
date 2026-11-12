@@ -11,7 +11,7 @@ export async function getCartToken(): Promise<string | undefined> {
 
 export async function getOrCreateCartToken(): Promise<string> {
   const existing = await getCartToken()
-  if (existing) return existing
+  if (existing !== undefined) return existing
 
   const { token } = await cartCreate()
   const store = await cookies()

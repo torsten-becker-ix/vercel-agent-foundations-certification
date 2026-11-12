@@ -29,7 +29,9 @@ import {
 export function AgentChat() {
   const [input, setInput] = useState("");
 
-  const handleSubmit = (message: PromptInputMessage) => {};
+  const handleSubmit = (_message: PromptInputMessage) => {
+    setInput("");
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -43,7 +45,7 @@ export function AgentChat() {
           <PromptInputBody>
             <PromptInputTextarea
               value={input}
-              onChange={(e) => setInput(e.currentTarget.value)}
+              onChange={(e) => { setInput(e.currentTarget.value); }}
               placeholder="Ask the agent"
             />
           </PromptInputBody>

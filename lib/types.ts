@@ -32,7 +32,7 @@ export interface Product {
   description: string;
   price: number;
   currency: string;
-  category: CategorySlug | string;
+  category: CategorySlug | (string & {});
   images: string[];
   featured: boolean;
   tags: string[];
@@ -47,7 +47,7 @@ export interface StockInfo {
 }
 
 export interface Category {
-  slug: CategorySlug | string;
+  slug: CategorySlug | (string & {});
   name: string;
   productCount: number;
 }

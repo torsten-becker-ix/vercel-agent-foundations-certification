@@ -9,7 +9,7 @@
  * Workshop docs: https://agent-foundations-certification.vercel.app/docs/chat-agent
  */
 
-export const POST = async () =>
+export const POST = () =>
   new Response(
     "Not implemented yet — finish the chat-agent workshop step to enable this route.",
     { status: 501 },

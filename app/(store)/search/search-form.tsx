@@ -68,7 +68,7 @@ export function SearchForm({
         router.replace(buildHref(query, category), { scroll: false })
       })
     }, DEBOUNCE_MS)
-    return () => clearTimeout(t)
+    return () => { clearTimeout(t); }
   }, [query, category, initialQuery, router])
 
   const handleCategoryChange = (next: string) => {
@@ -98,7 +98,7 @@ export function SearchForm({
           name="q"
           placeholder="Search products..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => { setQuery(e.target.value); }}
           className="pl-10 pr-10"
         />
         {isPending ? (
@@ -118,7 +118,7 @@ export function SearchForm({
             </button>
           )
         )}
-        {category && <input type="hidden" name="category" value={category} />}
+        {category ? <input type="hidden" name="category" value={category} /> : null}
       </div>
 
       <Select

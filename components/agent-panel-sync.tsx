@@ -50,7 +50,7 @@ export function AgentPanelSync() {
     applyOpen(true)
     // Re-enable transitions once the open state has painted.
     const raf = requestAnimationFrame(() =>
-      requestAnimationFrame(() => root.classList.remove(BOOT_CLASS)),
+      requestAnimationFrame(() => { root.classList.remove(BOOT_CLASS); }),
     )
     return () => {
       cancelAnimationFrame(raf)
@@ -60,9 +60,9 @@ export function AgentPanelSync() {
 
   // Keep the panel in sync with the URL on back/forward navigation.
   useEffect(() => {
-    const sync = () => applyOpen(paramPresent())
+    const sync = () => { applyOpen(paramPresent()); }
     window.addEventListener("popstate", sync)
-    return () => window.removeEventListener("popstate", sync)
+    return () => { window.removeEventListener("popstate", sync); }
   }, [])
 
   // state -> URL: reflect the panel state into the URL without navigating.
