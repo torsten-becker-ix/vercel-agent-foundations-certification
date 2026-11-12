@@ -15,6 +15,7 @@ import {
   getProductDetailsStep,
   isTransientApiError,
   SEARCH_DEFAULT_LIMIT,
+  searchKeywords,
   searchProductsInputSchema,
   searchProductsStep,
 } from "./tools";
@@ -88,6 +89,7 @@ describe("getAllCategoriesStep", () => {
     vi.mocked(getCategories).mockResolvedValue(categories);
     await expect(getAllCategoriesStep()).resolves.toEqual({
       status: "ok",
+      total: 2,
       categories,
     });
   });
@@ -145,6 +147,7 @@ describe("searchProductsStep", () => {
       status: "ok",
       query: "hoodie",
       category: null,
+      match: "phrase",
       products: [
         {
           id: "hoodie_001",
@@ -176,6 +179,41 @@ describe("searchProductsStep", () => {
       limit: undefined,
     });
     expect(result).toMatchObject({ status: "ok", products: [], total: 0 });
+  });
+
+  it("falls back to keyword matches when a multi-word phrase has no match", async () => {
+    const mug: Product = { ...product, id: "mug_001", name: "Black Mug" };
+    const byWord: Record<string, Product[]> = {
+      black: [product, mug],
+      hoodie: [product],
+    };
+    vi.mocked(getProductsPage).mockImplementation(async (params = {}) => {
+      const products = byWord[params.search ?? ""] ?? [];
+      return Promise.resolve({
+        products,
+        pagination: pagination({ total: products.length }),
+      });
+    });
+    const result = await searchProductsStep({
+      query: "black hoodie",
+      category: undefined,
+      page: undefined,
+      limit: undefined,
+    });
+    expect(result).toMatchObject({
+      status: "ok",
+      match: "keywords",
+      total: 1,
+      products: [{ id: "hoodie_001" }],
+    });
+  });
+
+  it("splits queries into unique keywords of two or more characters", () => {
+    expect(searchKeywords("Black  hoodie, a BLACK t-shirt")).toEqual([
+      "black",
+      "hoodie",
+      "t-shirt",
+    ]);
   });
 
   it("maps a rejected category to unknown_category with valid slugs", async () => {

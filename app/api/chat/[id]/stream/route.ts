@@ -1,13 +1,46 @@
-/**
- * This is where we'll add a route for resuming a stream for an agent chat.
- *
- * During the workshop you will wire this up in the Workflows chapter.
- *
- * Workshop docs: https://agent-foundations-certification.vercel.app/docs/workflows
- */
+import { createModelCallToUIChunkTransform } from "@ai-sdk/workflow";
+import { createUIMessageStreamResponse } from "ai";
+import { getRun } from "workflow/api";
 
-export const POST = () =>
-  new Response(
-    "Not implemented yet — finish the chat-agent workshop step to enable this route.",
-    { status: 501 },
+/** Workflow run ids look like `wrun_` + 26 Crockford base32 characters. */
+const RUN_ID = /^wrun_[0-9A-Z]{26}$/;
+
+/**
+ * Reconnects to a running (or finished) chat run, used by
+ * `WorkflowChatTransport` after a dropped connection or a page refresh.
+ *
+ * `startIndex` counts UI chunks the client already has, while the durable
+ * stream stores raw model parts. So the raw stream is replayed from 0 and the
+ * transform skips the first `startIndex` UI chunks: no duplicate output, and
+ * no new run is started.
+ */
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const { id } = await params;
+  if (!RUN_ID.test(id)) {
+    return Response.json({ error: "invalid_run_id" }, { status: 400 });
+  }
+
+  const startIndex = Number(
+    new URL(request.url).searchParams.get("startIndex") ?? "0",
   );
+  if (!Number.isSafeInteger(startIndex) || startIndex < 0) {
+    return Response.json({ error: "invalid_start_index" }, { status: 400 });
+  }
+
+  const run = getRun(id);
+  if (!(await run.exists)) {
+    return Response.json({ error: "run_not_found" }, { status: 404 });
+  }
+
+  return createUIMessageStreamResponse({
+    stream: run
+      .getReadable({ startIndex: 0 })
+      .pipeThrough(
+        createModelCallToUIChunkTransform({ uiStartIndex: startIndex }),
+      ),
+    headers: { "x-workflow-run-id": id },
+  });
+}

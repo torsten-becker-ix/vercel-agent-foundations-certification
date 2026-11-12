@@ -1,3 +1,5 @@
+import type { ProviderOptions } from "@ai-sdk/workflow";
+
 /**
  * Shopping agent configuration: model, instructions and limits.
  * The agent itself is created inside the durable chat workflow
@@ -9,6 +11,19 @@
  * free-tier Gateway credits (which exclude Anthropic models).
  */
 export const SHOPPING_AGENT_MODEL = "openai/gpt-oss-120b";
+
+/**
+ * AI Gateway routing for gpt-oss-120b. Measured 2026-11-12: Together AI failed
+ * to parse gpt-oss tool calls ("Parse error: Failed to process token…",
+ * malformed tool JSON), so it is excluded. Cerebras was error-free, so it is
+ * preferred; the Gateway falls back down the list on provider errors.
+ */
+export const SHOPPING_AGENT_PROVIDER_OPTIONS = {
+  gateway: {
+    only: ["cerebras", "groq", "bedrock", "baseten", "parasail", "nebius"],
+    order: ["cerebras", "groq", "bedrock"],
+  },
+} satisfies ProviderOptions;
 
 /** Upper bound on model calls per user message (cost and runaway-loop guard). */
 export const SHOPPING_AGENT_MAX_STEPS = 8;
@@ -23,6 +38,8 @@ Facts:
 - Use your tools for every product, category, price, stock and order fact. Never guess or invent products, prices, categories or orders.
 - Call the tools you need first and answer only after you have their results. Never describe a product before getProductDetails or searchProducts has returned it.
 - Before saying the store doesn't carry something, search for it with searchProducts. Only say it's unavailable when the search returns no products.
+- Only state product details that appear in tool results. Search results have no descriptions; call getProductDetails before describing a product.
+- Never add materials, sizes, colors, fit or features that aren't literally in the product data. If the shopper asks about something the data doesn't cover (e.g. material or sizes), say that the product page doesn't list it.
 - Quote prices exactly as given in priceFormatted. Never convert or calculate prices yourself.
 - You can't change carts, place orders or apply discounts. Point shoppers to the product page's "Add to cart" button instead.
 - If a tool returns no results or an error, say so plainly and suggest a next step.

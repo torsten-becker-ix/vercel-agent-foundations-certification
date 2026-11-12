@@ -72,6 +72,8 @@ export interface StockSummary {
 
 export interface GetAllCategoriesResult {
   status: "ok";
+  /** Number of categories (so the model never counts the list itself). */
+  total: number;
   categories: CategorySummary[];
 }
 
@@ -80,6 +82,11 @@ export type SearchProductsResult =
       status: "ok";
       query: string | null;
       category: string | null;
+      /**
+       * `phrase`: the API matched the whole query. `keywords`: the phrase had
+       * no match, so products matching the most individual words are shown.
+       */
+      match: "phrase" | "keywords";
       products: ProductSummary[];
       page: number;
       totalPages: number;
@@ -200,6 +207,7 @@ export async function getAllCategoriesStep(): Promise<GetAllCategoriesResult> {
     const categories = await getCategories();
     return {
       status: "ok",
+      total: categories.length,
       categories: categories.map(({ slug, name, productCount }) => ({
         slug,
         name,
@@ -209,6 +217,60 @@ export async function getAllCategoriesStep(): Promise<GetAllCategoriesResult> {
   } catch (error) {
     rethrow(error, "Loading categories");
   }
+}
+
+/** Words worth searching for on their own (the API matches one phrase). */
+export function searchKeywords(query: string): string[] {
+  const words = query
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}-]+/u)
+    .filter((word) => word.length >= 2);
+  return [...new Set(words)];
+}
+
+/**
+ * Fallback for multi-word queries without a phrase match ("black hoodie" vs.
+ * "Black Pullover Hoodie"): search each keyword and rank products by how many
+ * keywords they match. Returns null when there is nothing to fall back to.
+ */
+async function searchByKeywords(
+  query: string,
+  category: string | undefined,
+  limit: number,
+): Promise<SearchProductsResult | null> {
+  const keywords = searchKeywords(query);
+  if (keywords.length < 2) return null;
+
+  const pages = await Promise.all(
+    keywords.map(async (keyword) =>
+      getProductsPage({ search: keyword, category, limit: SEARCH_MAX_LIMIT }),
+    ),
+  );
+  const hits = new Map<string, { product: Product; score: number }>();
+  for (const { products } of pages) {
+    for (const product of products) {
+      const hit = hits.get(product.id);
+      if (hit === undefined) hits.set(product.id, { product, score: 1 });
+      else hit.score += 1;
+    }
+  }
+  const best = Math.max(0, ...[...hits.values()].map(({ score }) => score));
+  const ranked = [...hits.values()]
+    .filter(({ score }) => score === best)
+    .slice(0, limit)
+    .map(({ product }) => toProductSummary(product));
+
+  return {
+    status: "ok",
+    query,
+    category: category ?? null,
+    match: "keywords",
+    products: ranked,
+    page: 1,
+    totalPages: ranked.length === 0 ? 0 : 1,
+    total: ranked.length,
+    hasNextPage: false,
+  };
 }
 
 export async function searchProductsStep(
@@ -223,10 +285,15 @@ export async function searchProductsStep(
       page,
       limit,
     });
+    if (products.length === 0 && query !== undefined && (page ?? 1) === 1) {
+      const keywordResult = await searchByKeywords(query, category, limit);
+      if (keywordResult !== null) return keywordResult;
+    }
     return {
       status: "ok",
       query: query ?? null,
       category: category ?? null,
+      match: "phrase",
       products: products.map(toProductSummary),
       page: pagination.page,
       totalPages: pagination.totalPages,
@@ -290,7 +357,7 @@ export const shoppingTools = {
   }),
   searchProducts: tool({
     description:
-      "Search or browse the product catalog by text and/or category. Returns product summaries with integer-cent prices and pagination. An empty `products` list means nothing matched; `unknown_category` lists the valid slugs.",
+      'Search or browse the product catalog by text and/or category. Returns product summaries with prices and pagination. If the exact phrase has no match, it falls back to the best keyword matches (`match: "keywords"`). An empty `products` list means nothing matched; `unknown_category` lists the valid slugs.',
     inputSchema: searchProductsInputSchema,
     execute: searchProductsStep,
   }),
