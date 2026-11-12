@@ -16,7 +16,7 @@ Package manager is **pnpm** (see `pnpm-lock.yaml`).
 
 ## Best-practice skills
 
-Vercel's agent skills are vendored in `.agents/skills/` (pinned in `skills-lock.json`) and exposed to Claude Code via the `.claude/skills` symlink:
+Vercel's agent skills are vendored in `.agents/skills/` (pinned in `skills-lock.json`). Claude Code only reads `.claude/skills/`, which is git-ignored — expose them locally with `ln -s ../.agents/skills .claude/skills`:
 
 - `next-best-practices` — RSC boundaries, route handlers, data patterns, error handling, runtime selection
 - `vercel-react-best-practices` — React/Next.js performance rules

@@ -26,3 +26,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code local config (skills symlink: ln -s ../.agents/skills .claude/skills)
+.claude/
