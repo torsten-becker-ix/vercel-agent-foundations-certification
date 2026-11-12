@@ -1,12 +1,12 @@
-import { ProductGrid } from "@/components/product-grid"
-import { getProducts } from "@/lib/api"
-import type { Product } from "@/lib/types"
+import { ProductGrid } from "@/components/product-grid";
+import { getProducts } from "@/lib/api";
+import type { Product } from "@/lib/types";
 
 interface RelatedProductsProps {
-  product: Product
+  product: Product;
 }
 
-const TARGET_COUNT = 4
+const TARGET_COUNT = 4;
 
 export async function RelatedProducts({ product }: RelatedProductsProps) {
   // Try same category first; fall back to other featured/popular products if
@@ -14,22 +14,22 @@ export async function RelatedProducts({ product }: RelatedProductsProps) {
   const [byCategory, fallback] = await Promise.all([
     getProducts({ category: product.category, limit: 8 }).catch(() => []),
     getProducts({ limit: 12 }).catch(() => []),
-  ])
+  ]);
 
-  const seen = new Set<string>([product.id])
-  const related: Product[] = []
+  const seen = new Set<string>([product.id]);
+  const related: Product[] = [];
   for (const list of [byCategory, fallback]) {
     for (const p of list) {
-      if (related.length >= TARGET_COUNT) break
+      if (related.length >= TARGET_COUNT) break;
       if (!seen.has(p.id)) {
-        related.push(p)
-        seen.add(p.id)
+        related.push(p);
+        seen.add(p.id);
       }
     }
-    if (related.length >= TARGET_COUNT) break
+    if (related.length >= TARGET_COUNT) break;
   }
 
-  if (related.length === 0) return null
+  if (related.length === 0) return null;
 
   return (
     <section className="mt-16 border-t border-border pt-16">
@@ -40,5 +40,5 @@ export async function RelatedProducts({ product }: RelatedProductsProps) {
         <ProductGrid products={related} />
       </div>
     </section>
-  )
+  );
 }

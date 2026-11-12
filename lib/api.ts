@@ -60,8 +60,7 @@ interface CreateReturnInput {
 }
 
 type ApiResult<T, M = { pagination?: PaginationMeta }> =
-  | ApiSuccess<T, M>
-  | ApiFailure;
+  ApiSuccess<T, M> | ApiFailure;
 
 // Append the Vercel deployment-protection bypass as a query param.
 // Some protection configurations only honor the bypass via query (the header
@@ -99,7 +98,8 @@ async function request<T>(
   const headers: Record<string, string> = {
     "x-vercel-protection-bypass": PROTECTION_BYPASS,
   };
-  if (cartToken !== undefined && cartToken !== "") headers["x-cart-token"] = cartToken;
+  if (cartToken !== undefined && cartToken !== "")
+    headers["x-cart-token"] = cartToken;
   if (body !== undefined) headers["content-type"] = "application/json";
 
   const init: RequestInit & { next?: RequestOptions["next"] } = {
@@ -168,7 +168,8 @@ async function requestWithMeta<T, M>(
   const headers: Record<string, string> = {
     "x-vercel-protection-bypass": PROTECTION_BYPASS,
   };
-  if (cartToken !== undefined && cartToken !== "") headers["x-cart-token"] = cartToken;
+  if (cartToken !== undefined && cartToken !== "")
+    headers["x-cart-token"] = cartToken;
   if (body !== undefined) headers["content-type"] = "application/json";
 
   const init: RequestInit & { next?: RequestOptions["next"] } = {

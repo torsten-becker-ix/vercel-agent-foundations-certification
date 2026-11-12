@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   createContext,
@@ -9,28 +9,32 @@ import {
   useState,
   useTransition,
   type ReactNode,
-} from "react"
+} from "react";
 import {
   addToCartAction,
   getCartAction,
   removeCartItemAction,
   updateCartItemAction,
-} from "@/lib/cart-actions"
-import type { CartItemWithProduct, CartWithProducts, Product } from "@/lib/types"
+} from "@/lib/cart-actions";
+import type {
+  CartItemWithProduct,
+  CartWithProducts,
+  Product,
+} from "@/lib/types";
 
 interface CartContextType {
-  cart: CartWithProducts
-  itemCount: number
-  isOpen: boolean
-  isPending: boolean
-  openCart: () => void
-  closeCart: () => void
-  addToCart: (product: Product, quantity: number) => void
-  removeFromCart: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  cart: CartWithProducts;
+  itemCount: number;
+  isOpen: boolean;
+  isPending: boolean;
+  openCart: () => void;
+  closeCart: () => void;
+  addToCart: (product: Product, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined)
+const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const EMPTY_CART: CartWithProducts = {
   token: "",
@@ -40,16 +44,19 @@ const EMPTY_CART: CartWithProducts = {
   currency: "USD",
   createdAt: "",
   updatedAt: "",
-}
+};
 
 type OptimisticAction =
   | { type: "add"; product: Product; quantity: number }
   | { type: "update"; productId: string; quantity: number }
-  | { type: "remove"; productId: string }
+  | { type: "remove"; productId: string };
 
-function recompute(items: CartItemWithProduct[], currency: string): CartWithProducts {
-  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0)
-  const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0)
+function recompute(
+  items: CartItemWithProduct[],
+  currency: string,
+): CartWithProducts {
+  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
+  const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0);
   return {
     token: "",
     items,
@@ -58,14 +65,17 @@ function recompute(items: CartItemWithProduct[], currency: string): CartWithProd
     currency,
     createdAt: "",
     updatedAt: "",
-  }
+  };
 }
 
-function reducer(state: CartWithProducts, action: OptimisticAction): CartWithProducts {
+function reducer(
+  state: CartWithProducts,
+  action: OptimisticAction,
+): CartWithProducts {
   switch (action.type) {
     case "add": {
-      const { product, quantity } = action
-      const existing = state.items.find((i) => i.productId === product.id)
+      const { product, quantity } = action;
+      const existing = state.items.find((i) => i.productId === product.id);
       const items = existing
         ? state.items.map((i) =>
             i.productId === product.id
@@ -85,8 +95,8 @@ function reducer(state: CartWithProducts, action: OptimisticAction): CartWithPro
               product,
               lineTotal: product.price * quantity,
             },
-          ]
-      return recompute(items, state.currency || product.currency)
+          ];
+      return recompute(items, state.currency || product.currency);
     }
     case "update": {
       const items =
@@ -100,91 +110,95 @@ function reducer(state: CartWithProducts, action: OptimisticAction): CartWithPro
                     lineTotal: action.quantity * i.product.price,
                   }
                 : i,
-            )
-      return recompute(items, state.currency)
+            );
+      return recompute(items, state.currency);
     }
     case "remove": {
-      const items = state.items.filter((i) => i.productId !== action.productId)
-      return recompute(items, state.currency)
+      const items = state.items.filter((i) => i.productId !== action.productId);
+      return recompute(items, state.currency);
     }
   }
 }
 
 interface CartProviderProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function CartProvider({ children }: CartProviderProps) {
-  const [cart, setCart] = useState<CartWithProducts>(EMPTY_CART)
+  const [cart, setCart] = useState<CartWithProducts>(EMPTY_CART);
   const [optimisticCart, applyOptimistic] = useOptimistic<
     CartWithProducts,
     OptimisticAction
-  >(cart, reducer)
-  const [isPending, startTransition] = useTransition()
-  const [isOpen, setIsOpen] = useState(false)
+  >(cart, reducer);
+  const [isPending, startTransition] = useTransition();
+  const [isOpen, setIsOpen] = useState(false);
 
   // Hydrate from the session cookie after mount so the rest of the app stays static.
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     getCartAction()
       .then((server) => {
-        if (!cancelled) setCart(server)
+        if (!cancelled) setCart(server);
       })
       .catch(() => {
         // No-op: leave cart empty if the API is unreachable.
-      })
+      });
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
-  const openCart = useCallback(() => { setIsOpen(true); }, [])
-  const closeCart = useCallback(() => { setIsOpen(false); }, [])
+  const openCart = useCallback(() => {
+    setIsOpen(true);
+  }, []);
+  const closeCart = useCallback(() => {
+    setIsOpen(false);
+  }, []);
 
   const addToCart = useCallback(
     (product: Product, quantity: number) => {
       startTransition(async () => {
-        applyOptimistic({ type: "add", product, quantity })
+        applyOptimistic({ type: "add", product, quantity });
         try {
-          const updated = await addToCartAction(product.id, quantity)
-          setCart(updated)
+          const updated = await addToCartAction(product.id, quantity);
+          setCart(updated);
         } catch (err) {
-          console.error("addToCart failed", err)
+          console.error("addToCart failed", err);
         }
-      })
+      });
     },
     [applyOptimistic],
-  )
+  );
 
   const updateQuantity = useCallback(
     (productId: string, quantity: number) => {
       startTransition(async () => {
-        applyOptimistic({ type: "update", productId, quantity })
+        applyOptimistic({ type: "update", productId, quantity });
         try {
-          const updated = await updateCartItemAction(productId, quantity)
-          setCart(updated)
+          const updated = await updateCartItemAction(productId, quantity);
+          setCart(updated);
         } catch (err) {
-          console.error("updateQuantity failed", err)
+          console.error("updateQuantity failed", err);
         }
-      })
+      });
     },
     [applyOptimistic],
-  )
+  );
 
   const removeFromCart = useCallback(
     (productId: string) => {
       startTransition(async () => {
-        applyOptimistic({ type: "remove", productId })
+        applyOptimistic({ type: "remove", productId });
         try {
-          const updated = await removeCartItemAction(productId)
-          setCart(updated)
+          const updated = await removeCartItemAction(productId);
+          setCart(updated);
         } catch (err) {
-          console.error("removeFromCart failed", err)
+          console.error("removeFromCart failed", err);
         }
-      })
+      });
     },
     [applyOptimistic],
-  )
+  );
 
   return (
     <CartContext.Provider
@@ -202,13 +216,13 @@ export function CartProvider({ children }: CartProviderProps) {
     >
       {children}
     </CartContext.Provider>
-  )
+  );
 }
 
 export function useCart() {
-  const context = useContext(CartContext)
+  const context = useContext(CartContext);
   if (context === undefined) {
-    throw new Error("useCart must be used within a CartProvider")
+    throw new Error("useCart must be used within a CartProvider");
   }
-  return context
+  return context;
 }

@@ -1,11 +1,11 @@
-import type { Metadata } from "next"
-import { ProductGrid } from "@/components/product-grid"
-import { getCategories, getProducts } from "@/lib/api"
-import { SearchEmpty } from "./search-empty"
-import { SearchForm } from "./search-form"
+import type { Metadata } from "next";
+import { ProductGrid } from "@/components/product-grid";
+import { getCategories, getProducts } from "@/lib/api";
+import { SearchEmpty } from "./search-empty";
+import { SearchForm } from "./search-form";
 
 interface SearchPageProps {
-  searchParams: Promise<{ q?: string; category?: string }>
+  searchParams: Promise<{ q?: string; category?: string }>;
 }
 
 export const metadata: Metadata = {
@@ -17,15 +17,15 @@ export const metadata: Metadata = {
     description:
       "Search the full Ship It Shop catalog by name, category, or tag.",
   },
-}
+};
 
-const SEARCH_RESULT_LIMIT = 5
-const DEFAULT_LIMIT = 12
+const SEARCH_RESULT_LIMIT = 5;
+const DEFAULT_LIMIT = 12;
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const { q = "", category = "" } = await searchParams
-  const limit = q.length > 0 ? SEARCH_RESULT_LIMIT : DEFAULT_LIMIT
-  const isSearching = q.length > 0 || category.length > 0
+  const { q = "", category = "" } = await searchParams;
+  const limit = q.length > 0 ? SEARCH_RESULT_LIMIT : DEFAULT_LIMIT;
+  const isSearching = q.length > 0 || category.length > 0;
 
   const [categories, products] = await Promise.all([
     getCategories().catch(() => []),
@@ -34,7 +34,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       category: category || undefined,
       limit,
     }).catch(() => []),
-  ])
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -56,12 +56,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </div>
         ) : (
           <>
-            {isSearching ? <p className="mt-4 text-sm text-muted-foreground">
+            {isSearching ? (
+              <p className="mt-4 text-sm text-muted-foreground">
                 Showing {products.length} result
                 {products.length === 1 ? "" : "s"}
                 {q ? ` for "${q}"` : ""}
                 {category ? ` in ${category}` : ""}
-              </p> : null}
+              </p>
+            ) : null}
             <div className="mt-8">
               <ProductGrid products={products} />
             </div>
@@ -69,5 +71,5 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         )}
       </div>
     </div>
-  )
+  );
 }

@@ -1,6 +1,6 @@
-import Link from "next/link"
-import Image from "next/image"
-import { ArrowRight } from "lucide-react"
+import Link from "next/link";
+import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 
 export function CategoryShowcase() {
   return (
@@ -22,9 +22,9 @@ export function CategoryShowcase() {
             />
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-          
+
           <div className="relative z-10">
-            <span className="inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-white/80 backdrop-blur-sm">
+            <span className="inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-medium tracking-wider text-white/80 uppercase backdrop-blur-sm">
               Collection
             </span>
             <h3 className="mt-3 text-3xl font-bold text-white">Clothing</h3>
@@ -53,12 +53,14 @@ export function CategoryShowcase() {
             />
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/60 to-transparent" />
-          
+
           <div className="relative z-10">
-            <span className="inline-block rounded-full bg-foreground/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-foreground/70">
+            <span className="inline-block rounded-full bg-foreground/10 px-3 py-1 text-xs font-medium tracking-wider text-foreground/70 uppercase">
               Essentials
             </span>
-            <h3 className="mt-3 text-3xl font-bold text-foreground">Drinkware</h3>
+            <h3 className="mt-3 text-3xl font-bold text-foreground">
+              Drinkware
+            </h3>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
               Mugs and bottles to fuel your coding sessions.
             </p>
@@ -70,5 +72,5 @@ export function CategoryShowcase() {
         </Link>
       </div>
     </section>
-  )
+  );
 }

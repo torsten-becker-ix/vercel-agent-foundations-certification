@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { Bot } from "lucide-react"
-import { useSidebar } from "@/components/ui/sidebar"
+import { Bot } from "lucide-react";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export function AgentButton() {
-  const { open, openMobile, isMobile, toggleSidebar } = useSidebar()
-  const isOpen = isMobile ? openMobile : open
+  const { open, openMobile, isMobile, toggleSidebar } = useSidebar();
+  const isOpen = isMobile ? openMobile : open;
 
   return (
     <button
@@ -17,5 +17,5 @@ export function AgentButton() {
     >
       <Bot className="h-5 w-5" />
     </button>
-  )
+  );
 }

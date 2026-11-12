@@ -1,39 +1,39 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
-import Form from "next/form"
-import { Loader2, Search, X } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import Form from "next/form";
+import { Loader2, Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import type { Category } from "@/lib/types"
+} from "@/components/ui/select";
+import type { Category } from "@/lib/types";
 
 interface SearchFormProps {
-  initialQuery: string
-  initialCategory: string
-  categories: Category[]
+  initialQuery: string;
+  initialCategory: string;
+  categories: Category[];
 }
 
-const ALL_VALUE = "__all__"
-const AUTO_TRIGGER_MIN = 3
-const DEBOUNCE_MS = 300
+const ALL_VALUE = "__all__";
+const AUTO_TRIGGER_MIN = 3;
+const DEBOUNCE_MS = 300;
 
 function buildHref(query: string, category: string) {
   // Seed from the live URL so unrelated params (e.g. the agent panel's
   // `chat`) survive search navigations; delete-on-empty to keep clearing.
-  const params = new URLSearchParams(window.location.search)
-  if (query) params.set("q", query)
-  else params.delete("q")
-  if (category) params.set("category", category)
-  else params.delete("category")
-  const qs = params.toString()
-  return qs ? `/search?${qs}` : "/search"
+  const params = new URLSearchParams(window.location.search);
+  if (query) params.set("q", query);
+  else params.delete("q");
+  if (category) params.set("category", category);
+  else params.delete("category");
+  const qs = params.toString();
+  return qs ? `/search?${qs}` : "/search";
 }
 
 export function SearchForm({
@@ -41,50 +41,56 @@ export function SearchForm({
   initialCategory,
   categories,
 }: SearchFormProps) {
-  const router = useRouter()
-  const [query, setQuery] = useState(initialQuery)
-  const [category, setCategory] = useState(initialCategory)
-  const [isPending, startTransition] = useTransition()
+  const router = useRouter();
+  const [query, setQuery] = useState(initialQuery);
+  const [category, setCategory] = useState(initialCategory);
+  const [isPending, startTransition] = useTransition();
 
   // Stay in sync if the URL changes via Back/Forward. Adjusting state during
   // render (instead of in an effect) avoids an extra render pass:
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-  const [prevInitial, setPrevInitial] = useState({ initialQuery, initialCategory })
+  const [prevInitial, setPrevInitial] = useState({
+    initialQuery,
+    initialCategory,
+  });
   if (
     prevInitial.initialQuery !== initialQuery ||
     prevInitial.initialCategory !== initialCategory
   ) {
-    setPrevInitial({ initialQuery, initialCategory })
-    if (prevInitial.initialQuery !== initialQuery) setQuery(initialQuery)
-    if (prevInitial.initialCategory !== initialCategory) setCategory(initialCategory)
+    setPrevInitial({ initialQuery, initialCategory });
+    if (prevInitial.initialQuery !== initialQuery) setQuery(initialQuery);
+    if (prevInitial.initialCategory !== initialCategory)
+      setCategory(initialCategory);
   }
 
   // Auto-search after >= 3 chars (or when cleared), debounced.
   useEffect(() => {
-    if (query === initialQuery) return
-    if (query.length > 0 && query.length < AUTO_TRIGGER_MIN) return
+    if (query === initialQuery) return;
+    if (query.length > 0 && query.length < AUTO_TRIGGER_MIN) return;
     const t = setTimeout(() => {
       startTransition(() => {
-        router.replace(buildHref(query, category), { scroll: false })
-      })
-    }, DEBOUNCE_MS)
-    return () => { clearTimeout(t); }
-  }, [query, category, initialQuery, router])
+        router.replace(buildHref(query, category), { scroll: false });
+      });
+    }, DEBOUNCE_MS);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [query, category, initialQuery, router]);
 
   const handleCategoryChange = (next: string) => {
-    const value = next === ALL_VALUE ? "" : next
-    setCategory(value)
+    const value = next === ALL_VALUE ? "" : next;
+    setCategory(value);
     startTransition(() => {
-      router.replace(buildHref(query, value), { scroll: false })
-    })
-  }
+      router.replace(buildHref(query, value), { scroll: false });
+    });
+  };
 
   const handleClear = () => {
-    setQuery("")
+    setQuery("");
     startTransition(() => {
-      router.replace(buildHref("", category), { scroll: false })
-    })
-  }
+      router.replace(buildHref("", category), { scroll: false });
+    });
+  };
 
   return (
     <Form
@@ -92,18 +98,20 @@ export function SearchForm({
       className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="relative w-full sm:max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="text"
           name="q"
           placeholder="Search products..."
           value={query}
-          onChange={(e) => { setQuery(e.target.value); }}
-          className="pl-10 pr-10"
+          onChange={(e) => {
+            setQuery(e.target.value);
+          }}
+          className="pr-10 pl-10"
         />
         {isPending ? (
           <Loader2
-            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+            className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
             aria-label="Searching"
           />
         ) : (
@@ -111,14 +119,16 @@ export function SearchForm({
             <button
               type="button"
               onClick={handleClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+              className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
               aria-label="Clear search"
             >
               <X className="h-4 w-4" />
             </button>
           )
         )}
-        {category ? <input type="hidden" name="category" value={category} /> : null}
+        {category ? (
+          <input type="hidden" name="category" value={category} />
+        ) : null}
       </div>
 
       <Select
@@ -138,5 +148,5 @@ export function SearchForm({
         </SelectContent>
       </Select>
     </Form>
-  )
+  );
 }

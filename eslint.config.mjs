@@ -13,22 +13,35 @@ export default defineConfig([
   // typescript-eslint: strictest presets, type-aware.
   {
     files: ["**/*.{ts,tsx,mts,cts}"],
-    extends: [tseslint.configs.strictTypeChecked, tseslint.configs.stylisticTypeChecked],
+    extends: [
+      tseslint.configs.strictTypeChecked,
+      tseslint.configs.stylisticTypeChecked,
+    ],
     languageOptions: {
-      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/switch-exhaustiveness-check": [
         "error",
-        { considerDefaultExhaustiveForUnions: false, requireDefaultForNonUnion: true },
+        {
+          considerDefaultExhaustiveForUnions: false,
+          requireDefaultForNonUnion: true,
+        },
       ],
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/consistent-type-exports": "error",
       "@typescript-eslint/no-import-type-side-effects": "error",
       "@typescript-eslint/strict-boolean-expressions": [
         "error",
-        { allowNullableBoolean: true, allowNullableString: false, allowNumber: false },
+        {
+          allowNullableBoolean: true,
+          allowNullableString: false,
+          allowNumber: false,
+        },
       ],
       "@typescript-eslint/prefer-readonly": "error",
       "@typescript-eslint/promise-function-async": "error",
@@ -52,7 +65,9 @@ export default defineConfig([
 
   // eslint-disable comments must explain themselves; unused ones are errors.
   comments.recommended,
-  { rules: { "@eslint-community/eslint-comments/require-description": "error" } },
+  {
+    rules: { "@eslint-community/eslint-comments/require-description": "error" },
+  },
   { linterOptions: { reportUnusedDisableDirectives: "error" } },
 
   // Core rules.
@@ -71,7 +86,10 @@ export default defineConfig([
   },
 
   // Plain JS config files: no type information.
-  { files: ["**/*.{js,mjs,cjs}"], extends: [tseslint.configs.disableTypeChecked] },
+  {
+    files: ["**/*.{js,mjs,cjs}"],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
 
   globalIgnores([
     ".next/**",

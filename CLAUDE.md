@@ -12,7 +12,8 @@ Package manager is **pnpm** (see `pnpm-lock.yaml`).
 - `pnpm lint` — ESLint 9 flat config, `--max-warnings 0` (see *Strictness* below). Vendored code (`components/ui/**`, `components/ai-elements/**`, shadcn hooks) is ignored. Prefix intentionally unused bindings with `_`.
 - `pnpm typecheck` — `tsc --noEmit` (strictest compiler flags, see below)
 - `pnpm test` / `pnpm test:watch` — Vitest (`vitest.config.mts`, Node environment, `@/` alias). Tests live next to the code as `*.test.ts(x)`. `server-only` is stubbed in tests.
-- `pnpm check` — lint + typecheck + test. **Run before every commit.**
+- `pnpm format` / `pnpm format:check` — Prettier (`.prettierrc.json`, with `prettier-plugin-tailwindcss` for class order). Vendored code and `*.md` are ignored (`.prettierignore`).
+- `pnpm check` — format check + lint + typecheck + test. **Run before every commit.**
 
 ## Strictness
 
@@ -44,7 +45,7 @@ The rule is the strictest available setting. Anything weaker must be listed unde
 | `lib/api.ts` request helpers trust the API response type (return-type-only generics, one inline disable) | The response types mirror the store's OpenAPI spec. Runtime validation (zod) happens at the agent tool boundary, where the data reaches the model. |
 | `notifyReturnInProcess` uses `console.log` and is `async` without `await` (inline disables) | Intentional stand-in for an email-provider call, provided by the starter. |
 | Not enabled: `explicit-function-return-type`, `explicit-module-boundary-types`, `naming-convention` | Style only, not safety. They fight React/Next conventions (components, route handlers) and the API's field names; strict TS already checks the inferred types. |
-| No formatter yet | See the open decision in the walkthrough (Prettier). |
+| Prettier ignores `*.md` | `CLAUDE.md` is partly rewritten by `next dev`; `README.md` is written once just before submission. |
 
 ## Best-practice skills
 

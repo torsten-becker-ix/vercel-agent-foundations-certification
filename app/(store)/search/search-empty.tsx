@@ -1,9 +1,9 @@
-import Link from "next/link"
-import { Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import Link from "next/link";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SearchEmptyProps {
-  query: string
+  query: string;
 }
 
 export function SearchEmpty({ query }: SearchEmptyProps) {
@@ -12,7 +12,9 @@ export function SearchEmpty({ query }: SearchEmptyProps) {
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
         <Search className="h-8 w-8 text-muted-foreground" />
       </div>
-      <h3 className="mt-4 text-lg font-medium text-foreground">No products found</h3>
+      <h3 className="mt-4 text-lg font-medium text-foreground">
+        No products found
+      </h3>
       <p className="mt-1 text-sm text-muted-foreground">
         {query
           ? `We couldn't find any products matching "${query}"`
@@ -22,5 +24,5 @@ export function SearchEmpty({ query }: SearchEmptyProps) {
         <Link href="/search">Clear filters</Link>
       </Button>
     </div>
-  )
+  );
 }

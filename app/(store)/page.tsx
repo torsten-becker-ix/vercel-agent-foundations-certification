@@ -1,13 +1,13 @@
-import Image from "next/image"
-import Link from "next/link"
-import { ArrowRight } from "lucide-react"
-import { ProductGrid } from "@/components/product-grid"
-import { CategoryShowcase } from "@/components/category-showcase"
-import { PromoBanner } from "@/components/promo-banner"
-import { getProducts } from "@/lib/api"
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { ProductGrid } from "@/components/product-grid";
+import { CategoryShowcase } from "@/components/category-showcase";
+import { PromoBanner } from "@/components/promo-banner";
+import { getProducts } from "@/lib/api";
 
-export const dynamic = "force-static"
-export const revalidate = 60
+export const dynamic = "force-static";
+export const revalidate = 60;
 
 export default function HomePage() {
   return (
@@ -16,24 +16,24 @@ export default function HomePage() {
       <FeaturedProducts />
       <CategoryShowcase />
     </>
-  )
+  );
 }
 
 async function FeaturedProducts() {
   const products = await getProducts({ featured: true, limit: 4 }).catch(
     () => [],
-  )
-  const hero = products[0]
+  );
+  const hero = products[0];
 
   return (
     <>
       <section>
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 lg:grid-cols-2 lg:items-center lg:gap-12 lg:py-20">
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-            <h1 className="text-pretty text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-bold tracking-tight text-pretty text-foreground sm:text-5xl lg:text-6xl">
               Ship It Shop
             </h1>
-            <p className="mt-4 max-w-xl text-balance text-lg text-muted-foreground">
+            <p className="mt-4 max-w-xl text-lg text-balance text-muted-foreground">
               Premium merchandise for developers who ship fast. High-quality
               apparel and accessories for the modern web.
             </p>
@@ -46,7 +46,8 @@ async function FeaturedProducts() {
             </Link>
           </div>
 
-          {hero?.images[0] !== undefined ? <Link
+          {hero?.images[0] !== undefined ? (
+            <Link
               href={`/products/${hero.id}`}
               className="group relative mx-auto aspect-square w-full max-w-md overflow-hidden rounded-2xl bg-muted lg:mx-0"
             >
@@ -64,7 +65,8 @@ async function FeaturedProducts() {
                   {hero.name}
                 </p>
               </div>
-            </Link> : null}
+            </Link>
+          ) : null}
         </div>
       </section>
 
@@ -93,5 +95,5 @@ async function FeaturedProducts() {
         </div>
       </section>
     </>
-  )
+  );
 }

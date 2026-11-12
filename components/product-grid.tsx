@@ -1,12 +1,15 @@
-import type { Product } from "@/lib/types"
-import { ProductCard } from "./product-card"
+import type { Product } from "@/lib/types";
+import { ProductCard } from "./product-card";
 
 interface ProductGridProps {
-  products: Product[]
-  priorityFirst?: boolean
+  products: Product[];
+  priorityFirst?: boolean;
 }
 
-export function ProductGrid({ products, priorityFirst = false }: ProductGridProps) {
+export function ProductGrid({
+  products,
+  priorityFirst = false,
+}: ProductGridProps) {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {products.map((product, i) => (
@@ -17,5 +20,5 @@ export function ProductGrid({ products, priorityFirst = false }: ProductGridProp
         />
       ))}
     </div>
-  )
+  );
 }

@@ -23,7 +23,9 @@ export function LoginForm({ hasError }: LoginFormProps) {
           required
         />
       </div>
-      {hasError ? <p className="text-sm text-destructive">Incorrect password.</p> : null}
+      {hasError ? (
+        <p className="text-sm text-destructive">Incorrect password.</p>
+      ) : null}
       <SubmitButton />
     </form>
   );

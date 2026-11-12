@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import Link from "next/link"
-import { Minus, Plus, Trash2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import Image from "next/image";
+import Link from "next/link";
+import { Minus, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -11,22 +11,16 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet"
-import { useCart } from "@/components/cart-provider"
-import { formatPrice } from "@/lib/format"
+} from "@/components/ui/sheet";
+import { useCart } from "@/components/cart-provider";
+import { formatPrice } from "@/lib/format";
 
 export function CartSheet() {
-  const {
-    isOpen,
-    closeCart,
-    cart,
-    itemCount,
-    removeFromCart,
-    updateQuantity,
-  } = useCart()
+  const { isOpen, closeCart, cart, itemCount, removeFromCart, updateQuantity } =
+    useCart();
 
-  const items = cart.items
-  const currency = cart.currency || "USD"
+  const items = cart.items;
+  const currency = cart.currency || "USD";
 
   return (
     <Sheet open={isOpen} onOpenChange={closeCart}>
@@ -53,12 +47,14 @@ export function CartSheet() {
                   <li key={item.productId} className="px-4 py-4">
                     <div className="flex gap-4">
                       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
-                        {item.product.images[0] !== undefined ? <Image
+                        {item.product.images[0] !== undefined ? (
+                          <Image
                             src={item.product.images[0]}
                             alt={item.product.name}
                             fill
                             className="object-cover"
-                          /> : null}
+                          />
+                        ) : null}
                       </div>
                       <div className="flex flex-1 flex-col">
                         <div className="flex justify-between">
@@ -70,7 +66,9 @@ export function CartSheet() {
                             {item.product.name}
                           </Link>
                           <button
-                            onClick={() => { removeFromCart(item.productId); }}
+                            onClick={() => {
+                              removeFromCart(item.productId);
+                            }}
                             className="text-muted-foreground hover:text-foreground"
                             aria-label="Remove item"
                           >
@@ -82,8 +80,9 @@ export function CartSheet() {
                         </p>
                         <div className="mt-2 flex items-center gap-2">
                           <button
-                            onClick={() => { updateQuantity(item.productId, item.quantity - 1); }
-                            }
+                            onClick={() => {
+                              updateQuantity(item.productId, item.quantity - 1);
+                            }}
                             className="flex h-6 w-6 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground"
                             aria-label="Decrease quantity"
                           >
@@ -93,8 +92,9 @@ export function CartSheet() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => { updateQuantity(item.productId, item.quantity + 1); }
-                            }
+                            onClick={() => {
+                              updateQuantity(item.productId, item.quantity + 1);
+                            }}
                             className="flex h-6 w-6 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground"
                             aria-label="Increase quantity"
                           >
@@ -132,5 +132,5 @@ export function CartSheet() {
         )}
       </SheetContent>
     </Sheet>
-  )
+  );
 }

@@ -57,7 +57,9 @@ export function AdminAgentChat() {
           <PromptInputBody>
             <PromptInputTextarea
               value={input}
-              onChange={(e) => { setInput(e.currentTarget.value); }}
+              onChange={(e) => {
+                setInput(e.currentTarget.value);
+              }}
               placeholder="Ask the admin agent…"
             />
           </PromptInputBody>

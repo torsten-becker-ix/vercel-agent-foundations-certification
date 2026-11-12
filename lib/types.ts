@@ -1,9 +1,5 @@
 export type OrderStatus =
-  | "pending"
-  | "paid"
-  | "shipped"
-  | "delivered"
-  | "cancelled";
+  "pending" | "paid" | "shipped" | "delivered" | "cancelled";
 export type ReturnStatus = "pending" | "approved" | "rejected" | "processed";
 export type ReturnDecision = "approved" | "rejected" | null;
 

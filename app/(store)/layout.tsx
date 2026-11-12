@@ -11,10 +11,7 @@ export default function StoreLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <CartProvider>
-      <SidebarProvider
-        defaultOpen={false}
-        className="[--sidebar-width:28rem]!"
-      >
+      <SidebarProvider defaultOpen={false} className="[--sidebar-width:28rem]!">
         <div className="flex min-h-screen w-full min-w-0 flex-1 flex-col">
           <Header />
           <main className="flex-1">{children}</main>

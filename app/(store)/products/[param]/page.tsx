@@ -1,32 +1,32 @@
-import Image from "next/image"
-import Link from "next/link"
-import type { Metadata } from "next"
-import { notFound } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
-import { ApiRequestError, getProductById, getProducts } from "@/lib/api"
-import { formatPrice } from "@/lib/format"
-import { ProductPurchase } from "./product-purchase"
-import { RelatedProducts } from "./related-products"
+import Image from "next/image";
+import Link from "next/link";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { ApiRequestError, getProductById, getProducts } from "@/lib/api";
+import { formatPrice } from "@/lib/format";
+import { ProductPurchase } from "./product-purchase";
+import { RelatedProducts } from "./related-products";
 
 interface ProductPageProps {
-  params: Promise<{ param: string }>
+  params: Promise<{ param: string }>;
 }
 
 export async function generateStaticParams() {
   try {
-    const products = await getProducts({ limit: 100 })
-    return products.map((p) => ({ param: p.id }))
+    const products = await getProducts({ limit: 100 });
+    return products.map((p) => ({ param: p.id }));
   } catch {
-    return []
+    return [];
   }
 }
 
 export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
-  const { param } = await params
+  const { param } = await params;
   try {
-    const product = await getProductById(param)
+    const product = await getProductById(param);
     return {
       title: product.name,
       description: product.description,
@@ -42,24 +42,24 @@ export async function generateMetadata({
         description: product.description,
         images: product.images,
       },
-    }
+    };
   } catch {
-    return { title: "Product Not Found" }
+    return { title: "Product Not Found" };
   }
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const { param } = await params
+  const { param } = await params;
 
-  let product
+  let product;
   try {
-    product = await getProductById(param)
+    product = await getProductById(param);
   } catch (err) {
-    if (err instanceof ApiRequestError && err.status === 404) notFound()
-    throw err
+    if (err instanceof ApiRequestError && err.status === 404) notFound();
+    throw err;
   }
 
-  const image = product.images[0]
+  const image = product.images[0];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -73,18 +73,20 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-12">
         <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-secondary">
-          {image !== undefined ? <Image
+          {image !== undefined ? (
+            <Image
               src={image}
               alt={product.name}
               fill
               priority
               sizes="(min-width: 1024px) 50vw, 100vw"
               className="object-cover"
-            /> : null}
+            />
+          ) : null}
         </div>
 
         <div className="flex flex-col">
-          <p className="text-sm capitalize text-muted-foreground">
+          <p className="text-sm text-muted-foreground capitalize">
             {product.category}
           </p>
           <h1 className="mt-1 text-3xl font-bold text-foreground">
@@ -103,5 +105,5 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <RelatedProducts product={product} />
     </div>
-  )
+  );
 }
