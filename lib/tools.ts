@@ -232,6 +232,19 @@ export function searchKeywords(query: string): string[] {
 }
 
 /**
+ * A query written as a product slug ("black-pullover-hoodie"), as the model
+ * sometimes copies it from a link or the user's message, as the phrase the
+ * API can match ("black pullover hoodie"). Null for anything else, so words
+ * like "t-shirt" in a normal query stay as they are.
+ */
+export function slugAsPhrase(query: string): string | null {
+  const slug = query.trim().toLowerCase();
+  return /^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)+$/u.test(slug)
+    ? slug.replaceAll("-", " ")
+    : null;
+}
+
+/**
  * Fallback for multi-word queries without a phrase match ("black hoodie" vs.
  * "Black Pullover Hoodie"): search each keyword and rank products by how many
  * keywords they match. Returns null when there is nothing to fall back to.
@@ -294,6 +307,24 @@ export async function searchProductsStep(
   input: SearchProductsInput,
 ): Promise<SearchProductsResult> {
   "use step";
+  const result = await searchCatalog(input);
+  // A slug can't be split into keywords, so without a match it's searched
+  // again as the phrase it stands for.
+  const phrase = input.query === undefined ? null : slugAsPhrase(input.query);
+  if (
+    phrase !== null &&
+    result.status === "ok" &&
+    result.products.length === 0 &&
+    (input.page ?? 1) === 1
+  ) {
+    return searchCatalog({ ...input, query: phrase });
+  }
+  return result;
+}
+
+async function searchCatalog(
+  input: SearchProductsInput,
+): Promise<SearchProductsResult> {
   const { query, category, page, limit = SEARCH_DEFAULT_LIMIT } = input;
   try {
     const { products, pagination } = await getProductsPage({

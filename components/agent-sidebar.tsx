@@ -60,11 +60,14 @@ export function AgentSidebar() {
       }}
       side="right"
     >
-      {/* Named region: a landmark screen-reader users can jump to. */}
+      {/* Named region: a landmark screen-reader users can jump to. The
+          closed desktop panel only slides off-screen, so it's `inert`: no Tab
+          stops or screen-reader content (the mobile sheet unmounts). */}
       <section
         aria-label={PANEL_TITLE}
         className="flex h-full min-h-0 flex-col"
         data-slot="agent-panel"
+        inert={!isMobile && !open}
       >
         <SidebarHeader>
           <h2 className="px-2 py-1.5 text-sm font-semibold">{PANEL_TITLE}</h2>

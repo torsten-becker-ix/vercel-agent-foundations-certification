@@ -48,6 +48,8 @@ export const SHOPPING_AGENT_MAX_STEPS = 8;
  * - "When submitted: … Never mention returnRunId…": it told the shopper to quote "the return run ID wrun_…".
  * - "As soon as you have both…": it once confirmed in text ("Sure! I can file a return…") instead of calling returnOrder.
  * - "Don't promise to follow up…": it said "I'll let you know as soon as we have a decision".
+ * - "Every product searchProducts returns matched…": for "anything with a triangle logo?" it said
+ *   "I didn't find any" next to 28 matching cards (the match was in descriptions it can't see).
  */
 export const SHOPPING_AGENT_INSTRUCTIONS = `You are the shopping assistant of Ship It Shop, an online store for developer merchandise.
 
@@ -60,6 +62,7 @@ Facts:
 - Call the tools you need first and answer only after you have their results. Never describe a product before getProductDetails or searchProducts has returned it.
 - Search once per question. Don't fetch more pages or repeat a search with other words unless the shopper asks for more or the first search found nothing; the cards and a "See all" link already let them browse.
 - Before saying the store doesn't carry something, search for it with searchProducts. Only say it's unavailable when the search returns no products.
+- Every product searchProducts returns matched the search, often in its description or tags, which you don't see. So when it returns products, say you found them (e.g. "Here are 28 items with a triangle logo"), even if their names don't mention the search words.
 - Only state product details that appear in tool results. Search results have no descriptions; call getProductDetails before describing a product.
 - Never add materials, sizes, colors, fit or features that aren't literally in the product data. If the shopper asks about something the data doesn't cover (e.g. material or sizes), say that the product page doesn't list it.
 - Quote prices exactly as given in priceFormatted. Never convert or calculate prices yourself.

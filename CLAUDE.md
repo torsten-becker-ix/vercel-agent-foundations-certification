@@ -120,7 +120,7 @@ Plan and decisions: `admin-agent-plan.md` in the course notes (outside the repo)
 - Memory (`lib/admin/memory.ts`): `memory/MEMORY.md` in the sandbox, one dated bullet per note. Read in a step at the start of every run and put into the instructions; `saveMemory` appends idempotently (duplicates skipped).
 - Local sandbox auth: `VERCEL_OIDC_TOKEN` from `vercel env pull .env.local` (12 h). On Vercel the function's OIDC token is used automatically.
 - Recovery (`lib/workflows/chat-stream.ts`, both chats): `streamWithRecovery` continues a run after a model-stream error (up to 3 attempts, partial assistant message dropped, one step budget across attempts) and nudges once when a turn ends without answer text. `dropModelErrors` in `lib/chat-route.ts` filters the raw model `error` parts before the UI transform (so reconnect chunk indexes match); only `CHAT_FAILURE_MESSAGE` reaches the client.
-- Stop / New chat cancel the durable run (`POST …/[id]/cancel`, `cancelChatRun`). Signing out clears the stored admin chat.
+- Stop / New chat cancel the durable run (`POST …/[id]/cancel`, `cancelChatRun`). The cancel also closes the run's stream (`run.getWritable().close()`): a cancelled run never reaches `closeChatStream`, so its POST stayed open until the 300 s function timeout. Signing out clears the stored admin chat.
 - Known limitation: the conversation is re-sent in full each turn (tool outputs included), capped at 1 MB / 100 messages → very long admin chats end in 413; start a new chat.
 - gpt-oss: provider order `groq, baseten, bedrock, cerebras` for the admin agent; tool-schema limits must be generous (it writes 2–3k-character python heredocs; a too-small `max` makes the provider reject the whole call).
 
@@ -131,7 +131,7 @@ Plan and decisions: `admin-agent-plan.md` in the course notes (outside the repo)
 - `lib/request-guard.ts` (`readJsonBody`) guards JSON POST routes that start model runs: `application/json` only (415), same origin only (403), byte cap (413). `/api/chat` also allows only `user`/`assistant` roles. `WorkflowChatTransport` sends no content type, so `agent-chat.tsx` passes a `fetch` wrapper that adds it. Use the guard for `/api/admin/chat` too.
 - `next start` doesn't load `.env.development.local`, so `TOOL_APPROVAL_SECRET` is missing there and approvals fail. Test approvals with `pnpm dev`.
 - SEO: `lib/site.ts` (`SITE_URL` falls back to `VERCEL_PROJECT_PRODUCTION_URL`), `app/robots.ts`, `app/sitemap.ts`, `app/icon.svg`, `app/apple-icon.tsx`, and Product JSON-LD on product pages (`lib/product-json-ld.ts`, `<` escaped; no `availability`, because stock is live while the page is SSG).
-- Agent panel a11y (`agent-sidebar.tsx`): it's a named `<section>` landmark. Opening it focuses the input (`CHAT_INPUT_ID`); closing returns focus to the robot button (`AGENT_BUTTON_ID`); Esc closes it on desktop.
+- Agent panel a11y (`agent-sidebar.tsx`): it's a named `<section>` landmark. Opening it focuses the input (`CHAT_INPUT_ID`); closing returns focus to the robot button (`AGENT_BUTTON_ID`); Esc closes it on desktop. The closed desktop panel only slides off-screen, so its content is `inert` (the mobile sheet unmounts).
 
 ## Architecture
 

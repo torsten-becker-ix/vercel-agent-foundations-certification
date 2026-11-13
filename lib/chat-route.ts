@@ -145,6 +145,7 @@ export async function resumeChatRun(
  * Cancels a chat run when the user presses Stop or starts a new chat, so the
  * durable run doesn't keep calling the model, tools or the sandbox unseen.
  * Same checks as resume (id format, workflow kind), plus same-origin.
+ * Also closes the run's stream, which ends every open response of the run.
  */
 export async function cancelChatRun(
   request: Request,
@@ -167,6 +168,12 @@ export async function cancelChatRun(
   const status = await run.status;
   if (status === "pending" || status === "running") {
     await run.cancel({ cancelReason: "Stopped by the user" });
+    // A cancelled run never reaches its own `closeChatStream` step, so the
+    // run's readers (the original POST, resume GETs) would wait until the
+    // function times out (300 s, seen on production). Close it for them.
+    const ops: Promise<unknown>[] = [];
+    await run.getWritable({ ops }).close();
+    await Promise.all(ops);
   }
   return new Response(null, { status: 204 });
 }

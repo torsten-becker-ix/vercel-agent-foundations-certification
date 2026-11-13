@@ -18,6 +18,7 @@ import {
   searchKeywords,
   searchProductsInputSchema,
   searchProductsStep,
+  slugAsPhrase,
 } from "./tools";
 import type { Category, PaginationMeta, Product } from "./types";
 
@@ -246,6 +247,37 @@ describe("searchProductsStep", () => {
       total: 1,
       products: [{ id: "hoodie_001" }],
     });
+  });
+
+  it("searches a slug again as its phrase when it has no match", async () => {
+    vi.mocked(getProductsPage).mockImplementation(async (params = {}) => {
+      const products =
+        params.search === "black pullover hoodie" ? [product] : [];
+      return Promise.resolve({
+        products,
+        pagination: pagination({ total: products.length }),
+      });
+    });
+    const result = await searchProductsStep({
+      query: "black-pullover-hoodie",
+      category: undefined,
+      page: undefined,
+      limit: undefined,
+    });
+    expect(result).toMatchObject({
+      status: "ok",
+      query: "black pullover hoodie",
+      match: "phrase",
+      products: [{ slug: "black-pullover-hoodie" }],
+    });
+  });
+
+  it("reads only slug-shaped queries as a phrase", () => {
+    expect(slugAsPhrase("Black-Pullover-Hoodie")).toBe("black pullover hoodie");
+    expect(slugAsPhrase("t-shirt")).toBe("t shirt");
+    expect(slugAsPhrase("black t-shirt")).toBeNull();
+    expect(slugAsPhrase("hoodie")).toBeNull();
+    expect(slugAsPhrase("-hoodie")).toBeNull();
   });
 
   it("splits queries into unique keywords of two or more characters", () => {
