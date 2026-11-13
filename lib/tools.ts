@@ -19,6 +19,7 @@
  */
 import { tool } from "ai";
 import { getRun, start } from "workflow/api";
+import { HookConflictError } from "workflow/errors";
 import { z } from "zod";
 
 import {
@@ -36,11 +37,12 @@ import {
   type ReturnOutcome,
 } from "./returns";
 import { isApiStatus, rethrow } from "./tool-errors";
+import { isRunOfWorkflow } from "./workflow-run-id";
 import type { Product } from "./types";
 
 export type { ReturnCheck } from "./return-check";
 export { isTransientApiError } from "./tool-errors";
-import { returnFlow } from "./workflows/return-flow";
+import { returnFlow, type ReturnRequest } from "./workflows/return-flow";
 
 export const SEARCH_DEFAULT_LIMIT = 12;
 export const SEARCH_MAX_LIMIT = 24;
@@ -386,24 +388,58 @@ export async function checkReturnStep(orderId: string): Promise<ReturnCheck> {
   return lookupReturnCheck(orderId);
 }
 
+/** Hook token that makes "one return per order at a time" atomic. */
+export function returnClaimToken(orderId: string): string {
+  return `return:order:${orderId}`;
+}
+
 /**
- * Runs in the workflow (no "use step"): `start()` here is step-backed and
- * deterministic, so a replayed chat run never starts the return twice. The
- * return runs as its own workflow and doesn't block the chat; the shopper is
- * told right away that it was filed.
+ * Starts the return workflow at most once per order while one is running
+ * (workflow docs: Foundations → Idempotency). A duplicate — the same signed
+ * approval POSTed again, or "Try again" followed by a second Approve — gets
+ * the running return's id instead of a second notify / pre-authorization /
+ * filing. No run is created for the duplicate.
+ *
+ * The token is released when the return ends, so a later return of the same
+ * order is possible again (the store decides whether it's allowed).
+ *
+ * A step: its result is persisted, so a replayed chat run doesn't call
+ * `start()` again either.
+ */
+export async function startReturnFlowStep(
+  request: ReturnRequest,
+): Promise<string> {
+  "use step";
+  try {
+    const run = await start(returnFlow, [request], {
+      experimental_hook: { token: returnClaimToken(request.orderId) },
+    });
+    return run.runId;
+  } catch (error) {
+    if (HookConflictError.is(error) && error.conflictingRunId !== undefined) {
+      return error.conflictingRunId;
+    }
+    throw error;
+  }
+}
+
+/**
+ * The return runs as its own workflow and doesn't block the chat; the shopper
+ * is told right away that it was filed.
  */
 export async function returnOrderExecute(
   input: ReturnOrderInput,
 ): Promise<ReturnOrderResult> {
   const check = await checkReturnStep(input.orderId);
   if (check.status !== "eligible") return check;
-  const run = await start(returnFlow, [
-    { orderId: check.orderId, reason: input.reason },
-  ]);
+  const returnRunId = await startReturnFlowStep({
+    orderId: check.orderId,
+    reason: input.reason,
+  });
   return {
     status: "filed",
     orderId: check.orderId,
-    returnRunId: run.runId,
+    returnRunId,
     items: check.items,
   };
 }
@@ -414,7 +450,14 @@ export async function getReturnStatusStep(
   "use step";
   const { returnRunId } = input;
   const run = getRun<ReturnOutcome>(returnRunId);
-  if (!(await run.exists)) return { status: "not_found", returnRunId };
+  // The id comes from the model (copied from client-sent history): only a
+  // returnFlow run may answer, never e.g. a chat run's conversation.
+  if (
+    !(await run.exists) ||
+    !isRunOfWorkflow(await run.workflowName, "returnFlow")
+  ) {
+    return { status: "not_found", returnRunId };
+  }
   switch (await run.status) {
     case "completed":
       return { status: "done", returnRunId, outcome: await run.returnValue };

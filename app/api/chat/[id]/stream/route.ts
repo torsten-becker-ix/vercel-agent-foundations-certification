@@ -2,7 +2,7 @@ import { createModelCallToUIChunkTransform } from "@ai-sdk/workflow";
 import { createUIMessageStreamResponse } from "ai";
 import { getRun } from "workflow/api";
 
-import { isWorkflowRunId } from "@/lib/workflow-run-id";
+import { isRunOfWorkflow, isWorkflowRunId } from "@/lib/workflow-run-id";
 
 /**
  * Reconnects to a running (or finished) chat run, used by
@@ -30,7 +30,12 @@ export async function GET(
   }
 
   const run = getRun(id);
-  if (!(await run.exists)) {
+  // Only shopping chat runs: this route is public, so a return or (later)
+  // admin run id must not stream here. Same 404 as for an unknown id.
+  if (
+    !(await run.exists) ||
+    !isRunOfWorkflow(await run.workflowName, "shoppingChatFlow")
+  ) {
     return Response.json({ error: "run_not_found" }, { status: 404 });
   }
 

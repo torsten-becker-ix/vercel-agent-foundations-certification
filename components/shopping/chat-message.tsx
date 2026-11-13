@@ -13,6 +13,7 @@ function MessagePart({
   role,
   isAnswer,
   isStreaming,
+  isLatest,
   shownBefore,
 }: {
   part: ShoppingMessagePart;
@@ -20,6 +21,7 @@ function MessagePart({
   /** False for assistant text written alongside tool calls (see chat-visibility). */
   isAnswer: boolean;
   isStreaming: boolean;
+  isLatest: boolean;
   shownBefore: ReadonlySet<string>;
 }) {
   switch (part.type) {
@@ -40,6 +42,7 @@ function MessagePart({
     case "tool-getReturnStatus":
       return (
         <ToolPart
+          isLatest={isLatest}
           isStreaming={isStreaming}
           part={part}
           shownBefore={shownBefore}
@@ -87,10 +90,13 @@ function productsShownBefore(
 export function ChatMessage({
   message,
   isStreaming,
+  isLatest,
 }: {
   message: ShoppingUIMessage;
   /** True while this message is still being generated. */
   isStreaming: boolean;
+  /** True for the last message of the conversation. */
+  isLatest: boolean;
 }) {
   const answer = answerTextIndexes(message);
   const shownBefore = productsShownBefore(message);
@@ -103,6 +109,7 @@ export function ChatMessage({
             // eslint-disable-next-line react/no-array-index-key -- stable position within an append-only list
             key={index}
             isAnswer={answer.has(index)}
+            isLatest={isLatest}
             isStreaming={isStreaming}
             part={part}
             shownBefore={shownBefore.get(index) ?? NONE}

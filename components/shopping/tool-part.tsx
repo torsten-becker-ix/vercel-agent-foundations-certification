@@ -212,6 +212,7 @@ function Outcome({
 export function ToolPart({
   part,
   isStreaming,
+  isLatest,
   shownBefore,
 }: {
   part: ShoppingToolPart;
@@ -219,11 +220,24 @@ export function ToolPart({
   shownBefore: ReadonlySet<string>;
   /** False once the response ended (finished, stopped or failed). */
   isStreaming: boolean;
+  /** Part of the conversation's last message. */
+  isLatest: boolean;
 }) {
   switch (part.state) {
     case "approval-requested":
       // Waiting for the shopper (the run has ended), so not "Stopped".
       if (part.type === "tool-returnOrder") {
+        // Only the latest message can be answered: an approval in an older
+        // message is never sent (sendAutomaticallyWhen looks at the last
+        // message) and would leave a tool call without a result.
+        if (!isLatest) {
+          return (
+            <StatusLine icon={<CircleSlashIcon />}>
+              Return request for order #{part.input.orderId} expired. Ask again
+              to return it.
+            </StatusLine>
+          );
+        }
         return (
           <ReturnApprovalCard
             approvalId={part.approval.id}

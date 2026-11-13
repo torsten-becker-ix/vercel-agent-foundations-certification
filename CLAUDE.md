@@ -73,7 +73,7 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
 
 `.env.local` (gitignored) holds:
 
-- `BYPASS_SECRET` — required. Sent as the `x-vercel-protection-bypass` header on every API call. Must never be exposed to the client (no `NEXT_PUBLIC_` prefix).
+- `BYPASS_SECRET` — required. Sent as the `x-vercel-protection-bypass` header on every API call, never in the URL (Next records full fetch URLs in traces). Must never be exposed to the client (no `NEXT_PUBLIC_` prefix).
 - `API_BASE_URL` — optional. Defaults to `https://vercel-agentic-swag-store-api.vercel.app/api` in `lib/api.ts`.
 
 - `VERCEL_OIDC_TOKEN` — AI Gateway auth, written by `vercel env pull .env.local`; expires after 12 h.
@@ -93,6 +93,10 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
 - Changing `lib/agent.ts` alone doesn't always rebuild the workflow bundle in dev ("Compiled workflows in 0ms"); `touch lib/workflows/chat-flow.ts` forces it.
 - Adding AI Elements components: **don't** run `ai-elements` with flags (`--help` installs *everything*). Fetch `https://elements.ai-sdk.dev/api/registry/<name>.json`, write `files[].content` to its `target`, and replace `@/registry/default/ui/` with `@/components/ui/`. Then fix strict-mode type errors (type-only).
 - Returns: `returnOrder` (tool, `needsApproval` = eligibility check, so impossible returns never get an approval card) → after Approve the next chat run starts `returnFlow` (`lib/workflows/return-flow.ts`) as its own workflow: lookup → notify → pre-authorize → file (with `createWebhook()` callback) → decision via webhook signal or polling `GET /returns/{id}` → notify. Approvals are HMAC-signed (`experimental_toolApprovalSecret`).
+  - One return per order at a time: `startReturnFlowStep` starts `returnFlow` with `experimental_hook: { token: "return:order:<id>" }`. A duplicate (a replayed signed approval, or "Try again" plus a second Approve) gets the running return's id via `HookConflictError.conflictingRunId`; no second run is created. The token is released when the return ends.
+  - Run ids come from the client, so lookups check the workflow: the resume route only streams `shoppingChatFlow` runs and `getReturnStatus` only reads `returnFlow` runs (`isRunOfWorkflow`).
+  - Only the latest message's approval card has live buttons; older ones show "expired", because an approval outside the last message is never sent and would leave a tool call without a result.
+- `chat-flow.ts` converts with `ignoreIncompleteToolCalls: true`: Stop during a tool call leaves an `input-available` part, which would otherwise fail every later run (`MissingToolResultsError`).
 - Chat recovery (`lib/chat-storage.ts`, `components/agent-chat.tsx`): `localStorage` key `ship-it-shop:chat` holds the messages **as sent** plus the active run id, saved in the transport's `onChatSendMessage` and cleared in `onFinish`. It never holds the in-flight answer; that answer is rebuilt once by replaying the run from index 0.
   - Page refresh: `useChat({ messages, resume })`, with `resume` only when a run id is stored (an empty resume throws in `WorkflowChatTransport`). `prepareReconnectToStreamRequest` points the resume at `/api/chat/<runId>/stream`.
   - Connection lost (fetch fails while offline → `isDisconnect`): the `online` event or **Reconnect** remounts the session from storage, the same path as a refresh. Don't call `resumeStream()` in place: it would replay from 0 on top of the partial answer and duplicate it. And setting `resumeStreamIsReplay` would wipe the approval message on an approval continuation.

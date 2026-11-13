@@ -64,3 +64,23 @@ describe("query building", () => {
     expect(requestedUrl(fetchMock).search).toBe("");
   });
 });
+
+describe("protection bypass", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("sends the secret as a header, never in the URL", async () => {
+    vi.stubEnv("BYPASS_SECRET", "test-bypass-secret");
+    vi.resetModules();
+    const api = await import("./api");
+    const fetchMock = mockFetch();
+    await api.getProducts({ limit: 1 });
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    expect(requestedUrl(fetchMock).href).not.toContain("test-bypass-secret");
+    expect(new Headers(init?.headers).get("x-vercel-protection-bypass")).toBe(
+      "test-bypass-secret",
+    );
+  });
+});

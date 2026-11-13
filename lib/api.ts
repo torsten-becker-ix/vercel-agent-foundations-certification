@@ -63,14 +63,14 @@ interface CreateReturnInput {
 type ApiResult<T, M = { pagination?: PaginationMeta }> =
   ApiSuccess<T, M> | ApiFailure;
 
-// Append the Vercel deployment-protection bypass as a query param.
-// Some protection configurations only honor the bypass via query (the header
-// variant requires a cookie round-trip that server-side `fetch` won't follow).
-function withBypass(path: string): string {
-  const url = `${API_BASE_URL}${path}`;
-  if (!PROTECTION_BYPASS) return url;
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}x-vercel-protection-bypass=${encodeURIComponent(PROTECTION_BYPASS)}`;
+/**
+ * The bypass secret goes only in the `x-vercel-protection-bypass` header
+ * (Vercel's documented way for automation; the cookie round-trip is only for
+ * browsers). Never in the URL: Next records full fetch URLs in traces and
+ * fetch metrics, and the upstream logs request URLs.
+ */
+function apiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
 }
 
 export class ApiRequestError extends Error {
@@ -113,7 +113,7 @@ async function request<T>(
 
   let res: Response;
   try {
-    res = await fetch(withBypass(path), init);
+    res = await fetch(apiUrl(path), init);
   } catch (err) {
     console.error(`[api] ${method} ${path} network error:`, err);
     throw new ApiRequestError(
@@ -183,7 +183,7 @@ async function requestWithMeta<T, M>(
 
   let res: Response;
   try {
-    res = await fetch(withBypass(path), init);
+    res = await fetch(apiUrl(path), init);
   } catch (err) {
     console.error(`[api] ${method} ${path} network error:`, err);
     throw new ApiRequestError(
@@ -328,7 +328,7 @@ export async function cartCreate(): Promise<{
   token: string;
   cart: CartWithProducts;
 }> {
-  const res = await fetch(withBypass("/cart/create"), {
+  const res = await fetch(apiUrl("/cart/create"), {
     method: "POST",
     headers: {
       "x-vercel-protection-bypass": PROTECTION_BYPASS,

@@ -60,7 +60,11 @@ export async function shoppingChatFlow(messages: UIMessage[]) {
 
   try {
     const result = await agent.stream({
-      messages: await convertToModelMessages(messages),
+      // Drops tool calls without a result (e.g. the shopper pressed Stop while a
+      // tool ran). Kept, they fail every later run (MissingToolResultsError).
+      messages: await convertToModelMessages(messages, {
+        ignoreIncompleteToolCalls: true,
+      }),
       writable,
       stopWhen: isStepCount(SHOPPING_AGENT_MAX_STEPS),
       // We close the stream ourselves (below), so a failure can still be

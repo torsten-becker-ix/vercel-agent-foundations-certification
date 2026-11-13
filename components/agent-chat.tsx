@@ -295,6 +295,7 @@ function ChatSession({
             ) : (
               messages.map((message, index) => (
                 <ChatMessage
+                  isLatest={index === messages.length - 1}
                   isStreaming={isBusy ? index === messages.length - 1 : false}
                   key={message.id}
                   message={message}
