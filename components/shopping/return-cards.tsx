@@ -89,6 +89,11 @@ export function ReturnApprovalCard({
     };
   }, [orderId]);
 
+  // The order changed since the agent checked it (or a restored chat is
+  // stale): don't offer to approve a return the store would refuse.
+  const cannotReturn =
+    preview?.status === "not_eligible" || preview?.status === "not_found";
+
   return (
     <CardShell icon={<PackageIcon />} title={`Return order #${orderId}?`}>
       <p className="text-xs text-muted-foreground">Reason: “{reason}”</p>
@@ -102,6 +107,14 @@ export function ReturnApprovalCard({
             {preview.totalFormatted}). Nothing happens until you approve.
           </p>
         </>
+      ) : preview.status === "not_eligible" ? (
+        <p className="text-xs text-muted-foreground">
+          This order can&apos;t be returned: {preview.explanation}
+        </p>
+      ) : preview.status === "not_found" ? (
+        <p className="text-xs text-muted-foreground">
+          Order #{orderId} wasn&apos;t found, so it can&apos;t be returned.
+        </p>
       ) : (
         <p className="text-xs text-muted-foreground">
           The order details couldn&apos;t be loaded. Nothing happens until you
@@ -111,7 +124,7 @@ export function ReturnApprovalCard({
       <div className="flex flex-wrap gap-2">
         <Button
           aria-label={`Approve return for order ${orderId}`}
-          disabled={isBusy}
+          disabled={isBusy || cannotReturn}
           onClick={() => {
             respondToApproval(approvalId, true);
           }}
@@ -137,8 +150,11 @@ export function ReturnApprovalCard({
   );
 }
 
-/** Confirmation shown as soon as the return workflow has started. */
-export function ReturnFiledCard({
+/**
+ * Shown as soon as the return workflow has started. "Submitted", not "filed":
+ * filing with the store happens in the workflow, moments later.
+ */
+export function ReturnSubmittedCard({
   orderId,
   items,
 }: {
@@ -149,12 +165,12 @@ export function ReturnFiledCard({
   return (
     <CardShell
       icon={<CheckCircle2Icon />}
-      title={`Return filed for order #${orderId}`}
+      title={`Return submitted for order #${orderId}`}
     >
       <ItemList items={items} />
       <p className="text-xs text-muted-foreground">
-        The store reviews returns within about a minute. You can keep shopping
-        meanwhile.
+        It&apos;s being filed with the store now; the store usually decides
+        within about a minute. You can keep shopping meanwhile.
       </p>
       <Button
         className="self-start"
@@ -172,7 +188,7 @@ export function ReturnFiledCard({
   );
 }
 
-/** The store's decision on a filed return. */
+/** The store's decision on a submitted return. */
 export function ReturnDecisionCard({ outcome }: { outcome: ReturnOutcome }) {
   if (outcome.status === "pending") {
     return (

@@ -94,6 +94,45 @@ describe("getAllCategoriesStep", () => {
     });
   });
 
+  it("doesn't blame the category for other validation errors", async () => {
+    vi.mocked(getProductsPage).mockRejectedValue(
+      new ApiRequestError(422, "VALIDATION_ERROR", "Invalid query parameters", {
+        limit: ["Number must be less than or equal to 100"],
+      }),
+    );
+    await expect(
+      searchProductsStep({
+        query: undefined,
+        category: "hoodies",
+        page: undefined,
+        limit: undefined,
+      }),
+    ).rejects.toThrow("rejected by the store API (status 422)");
+    expect(getCategories).not.toHaveBeenCalled();
+  });
+
+  it("searches at most four keywords in the fallback", async () => {
+    vi.mocked(getProductsPage).mockResolvedValue({
+      products: [],
+      pagination: {
+        page: 1,
+        limit: 24,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    });
+    await searchProductsStep({
+      query: "aa bb cc dd ee ff gg hh ii jj kk ll",
+      category: undefined,
+      page: undefined,
+      limit: undefined,
+    });
+    // One phrase search + at most four keyword searches.
+    expect(getProductsPage).toHaveBeenCalledTimes(5);
+  });
+
   it("re-throws transient failures so the step retries", async () => {
     vi.mocked(getCategories).mockRejectedValue(apiError(503));
     await expect(getAllCategoriesStep()).rejects.toBeInstanceOf(
@@ -218,7 +257,13 @@ describe("searchProductsStep", () => {
   });
 
   it("maps a rejected category to unknown_category with valid slugs", async () => {
-    vi.mocked(getProductsPage).mockRejectedValue(apiError(422));
+    vi.mocked(getProductsPage).mockRejectedValue(
+      new ApiRequestError(
+        422,
+        "VALIDATION_ERROR",
+        "Invalid category 'spaceships'. Valid categories: hoodies, mugs",
+      ),
+    );
     vi.mocked(getCategories).mockResolvedValue(categories);
     await expect(
       searchProductsStep({

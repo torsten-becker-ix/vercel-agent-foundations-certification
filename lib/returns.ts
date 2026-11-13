@@ -97,6 +97,8 @@ export interface ReturnPending {
   status: "pending";
   orderId: string;
   returnId: string;
+  /** For formatting the refund when the decision is looked up later. */
+  currency: string;
 }
 
 export type ReturnOutcome = ReturnDecided | ReturnPending;
@@ -104,7 +106,12 @@ export type ReturnOutcome = ReturnDecided | ReturnPending;
 /** Turns the API's return record into what the shopper is told. */
 export function toReturnOutcome(ret: Return, currency: string): ReturnOutcome {
   if (ret.status !== "completed" || ret.decision === null) {
-    return { status: "pending", orderId: ret.orderId, returnId: ret.id };
+    return {
+      status: "pending",
+      orderId: ret.orderId,
+      returnId: ret.id,
+      currency,
+    };
   }
   return {
     status: "decided",

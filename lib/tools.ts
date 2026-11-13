@@ -27,6 +27,7 @@ import {
   getProductById,
   getProductStock,
   getProductsPage,
+  getReturn,
 } from "./api";
 import { formatPrice } from "./format";
 import { lookupReturnCheck, type ReturnCheck } from "./return-check";
@@ -35,6 +36,7 @@ import {
   orderIdSchema,
   returnReasonSchema,
   type ReturnOutcome,
+  toReturnOutcome,
 } from "./returns";
 import { isApiStatus, rethrow } from "./tool-errors";
 import { isRunOfWorkflow } from "./workflow-run-id";
@@ -214,6 +216,12 @@ export async function getAllCategoriesStep(): Promise<GetAllCategoriesResult> {
   }
 }
 
+/**
+ * Keywords searched on their own in the fallback. Each is one API call in the
+ * same step, so a long query must not fan out (and a single 429 retries all).
+ */
+const MAX_FALLBACK_KEYWORDS = 4;
+
 /** Words worth searching for on their own (the API matches one phrase). */
 export function searchKeywords(query: string): string[] {
   const words = query
@@ -233,7 +241,7 @@ async function searchByKeywords(
   category: string | undefined,
   limit: number,
 ): Promise<SearchProductsResult | null> {
-  const keywords = searchKeywords(query);
+  const keywords = searchKeywords(query).slice(0, MAX_FALLBACK_KEYWORDS);
   if (keywords.length < 2) return null;
 
   const pages = await Promise.all(
@@ -269,6 +277,19 @@ async function searchByKeywords(
   };
 }
 
+/**
+ * The API answers an unknown category slug with 422 VALIDATION_ERROR and the
+ * message "Invalid category '…'" (no `details`). Other 422s (e.g. `limit`)
+ * name their field in `details`, so they aren't mistaken for a bad category.
+ */
+export function isUnknownCategoryError(error: unknown): boolean {
+  if (!isApiStatus(error, 422)) return false;
+  const { details } = error;
+  const fieldIsCategory =
+    typeof details === "object" && details !== null && "category" in details;
+  return fieldIsCategory || /\bcategory\b/i.test(error.message);
+}
+
 export async function searchProductsStep(
   input: SearchProductsInput,
 ): Promise<SearchProductsResult> {
@@ -298,9 +319,13 @@ export async function searchProductsStep(
       hasNextPage: pagination.hasNextPage,
     };
   } catch (error) {
-    // The API answers an unknown category slug with 422 VALIDATION_ERROR.
-    if (category !== undefined && isApiStatus(error, 422)) {
-      const categories = await getCategories();
+    if (category !== undefined && isUnknownCategoryError(error)) {
+      let categories: Awaited<ReturnType<typeof getCategories>>;
+      try {
+        categories = await getCategories();
+      } catch (categoriesError) {
+        rethrow(categoriesError, "Loading categories");
+      }
       return {
         status: "unknown_category",
         category,
@@ -368,7 +393,8 @@ export type GetReturnStatusInput = z.output<typeof getReturnStatusInputSchema>;
 
 export type ReturnOrderResult =
   | {
-      status: "filed";
+      /** The return workflow started; filing with the store follows in it. */
+      status: "submitted";
       orderId: string;
       /** Id of the return workflow run, for getReturnStatus. */
       returnRunId: string;
@@ -425,7 +451,7 @@ export async function startReturnFlowStep(
 
 /**
  * The return runs as its own workflow and doesn't block the chat; the shopper
- * is told right away that it was filed.
+ * is told right away that it was submitted (filing happens in the workflow).
  */
 export async function returnOrderExecute(
   input: ReturnOrderInput,
@@ -437,11 +463,27 @@ export async function returnOrderExecute(
     reason: input.reason,
   });
   return {
-    status: "filed",
+    status: "submitted",
     orderId: check.orderId,
     returnRunId,
     items: check.items,
   };
+}
+
+/**
+ * The return workflow stops polling after a few minutes and then ends with a
+ * pending outcome. A late decision is still in the store, so look it up live
+ * instead of reporting "pending" forever. Lookup failures keep "pending".
+ */
+async function withLiveDecision(
+  outcome: ReturnOutcome,
+): Promise<ReturnOutcome> {
+  if (outcome.status !== "pending") return outcome;
+  try {
+    return toReturnOutcome(await getReturn(outcome.returnId), outcome.currency);
+  } catch {
+    return outcome;
+  }
 }
 
 export async function getReturnStatusStep(
@@ -460,7 +502,11 @@ export async function getReturnStatusStep(
   }
   switch (await run.status) {
     case "completed":
-      return { status: "done", returnRunId, outcome: await run.returnValue };
+      return {
+        status: "done",
+        returnRunId,
+        outcome: await withLiveDecision(await run.returnValue),
+      };
     case "failed":
     case "cancelled":
       return { status: "failed", returnRunId };
@@ -506,7 +552,7 @@ export const shoppingTools = {
   }),
   getReturnStatus: tool({
     description:
-      "Check a filed return: `processing`, `done` with the decision (approved with refund, rejected, or needs more info), or `failed`.",
+      "Check a submitted return: `processing`, `done` with the decision (approved with refund, rejected, or needs more info), or `failed`.",
     inputSchema: getReturnStatusInputSchema,
     execute: getReturnStatusStep,
   }),

@@ -13,7 +13,7 @@ import { ProductResults } from "@/components/shopping/product-results";
 import {
   ReturnApprovalCard,
   ReturnDecisionCard,
-  ReturnFiledCard,
+  ReturnSubmittedCard,
 } from "@/components/shopping/return-cards";
 import type { ShoppingMessagePart } from "@/lib/chat-types";
 import { cn } from "@/lib/utils";
@@ -157,9 +157,12 @@ function Outcome({
     case "tool-returnOrder": {
       const { output } = part;
       switch (output.status) {
-        case "filed":
+        case "submitted":
           return (
-            <ReturnFiledCard items={output.items} orderId={output.orderId} />
+            <ReturnSubmittedCard
+              items={output.items}
+              orderId={output.orderId}
+            />
           );
         case "not_found":
           return (
@@ -190,7 +193,8 @@ function Outcome({
         case "failed":
           return (
             <StatusLine icon={<AlertCircleIcon />} tone="error">
-              Processing the return failed.
+              Processing the return failed. Please contact support with your
+              order number.
             </StatusLine>
           );
         case "not_found":

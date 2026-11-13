@@ -102,7 +102,10 @@ async function fileReturnStep(input: {
     throw new Error("Injected failure (RETURN_FLOW_FAULT=file-once)");
   }
   try {
-    const filed = await createReturn(input);
+    const filed = await createReturn({
+      ...input,
+      callback: publicCallbackUrl(input.callback),
+    });
     return { returnId: filed.id };
   } catch (error) {
     throw toFatal(error, "Filing the return");
@@ -111,7 +114,29 @@ async function fileReturnStep(input: {
 
 async function getReturnOutcomeStep(returnId: string, currency: string) {
   "use step";
-  return toReturnOutcome(await getReturn(returnId), currency);
+  try {
+    return toReturnOutcome(await getReturn(returnId), currency);
+  } catch (error) {
+    throw toFatal(error, "Reading the return decision");
+  }
+}
+
+/**
+ * `webhook.url` is built from `VERCEL_URL`, the deployment URL, which Vercel
+ * Authentication protects (401 for the store API's callback). On production,
+ * send the public production domain instead: same path and token, and it
+ * serves the same webhook route. Previews keep the deployment URL (protected →
+ * the decision arrives by polling).
+ */
+function publicCallbackUrl(url: string): string {
+  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (process.env.VERCEL_ENV !== "production" || productionHost === undefined) {
+    return url;
+  }
+  const callback = new URL(url);
+  callback.protocol = "https:";
+  callback.host = productionHost;
+  return callback.toString();
 }
 
 // eslint-disable-next-line @typescript-eslint/require-await -- stand-in for an async email-provider call (like the starter's notifyReturnInProcess)
@@ -147,6 +172,9 @@ export async function returnFlow(
   await preauthorizeRefundStep(order.orderId);
 
   using webhook = createWebhook();
+  // The endpoint is registered with the next steps, not before them; the API
+  // may call back right after filing, so make sure it exists first.
+  await webhook.getConflict();
   const { returnId } = await fileReturnStep({
     orderId: order.orderId,
     items: order.items,
@@ -156,27 +184,47 @@ export async function returnFlow(
 
   let settled = false;
 
+  const pending: ReturnOutcome = {
+    status: "pending",
+    orderId: order.orderId,
+    returnId,
+    currency: order.currency,
+  };
+
+  /**
+   * One decision lookup. A lookup that fails even after its retries counts as
+   * "not decided yet": the return is already filed, so the run must not fail.
+   */
+  const lookUp = async (): Promise<ReturnOutcome> => {
+    try {
+      return await getReturnOutcomeStep(returnId, order.currency);
+    } catch {
+      return pending;
+    }
+  };
+
   const viaWebhook = async (): Promise<ReturnOutcome> => {
     for await (const incoming of webhook) {
       const body = returnCallbackSchema.safeParse(
         await incoming.json().catch(() => null),
       );
       if (body.success && body.data.returnId === returnId) {
-        const outcome = await getReturnOutcomeStep(returnId, order.currency);
+        const outcome = await lookUp();
         if (outcome.status === "decided") return outcome;
       }
     }
-    return { status: "pending", orderId: order.orderId, returnId };
+    return pending;
   };
 
   const viaPolling = async (): Promise<ReturnOutcome> => {
     await sleep(FIRST_POLL_DELAY);
     for (let poll = 0; poll < MAX_POLLS && !settled; poll++) {
-      const outcome = await getReturnOutcomeStep(returnId, order.currency);
+      const outcome = await lookUp();
       if (outcome.status === "decided") return outcome;
       await sleep(POLL_INTERVAL);
     }
-    return { status: "pending", orderId: order.orderId, returnId };
+    // Still undecided: getReturnStatus looks the decision up live later.
+    return pending;
   };
 
   const outcome = await Promise.race([viaWebhook(), viaPolling()]);

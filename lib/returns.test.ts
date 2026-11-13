@@ -129,7 +129,12 @@ describe("toReturnOutcome", () => {
   it("is pending until the API has completed processing", () => {
     expect(
       toReturnOutcome(ret({ status: "processing", decision: null }), "USD"),
-    ).toEqual({ status: "pending", orderId: "11111", returnId: "ret_1" });
+    ).toEqual({
+      status: "pending",
+      orderId: "11111",
+      returnId: "ret_1",
+      currency: "USD",
+    });
   });
 });
 
