@@ -5,11 +5,13 @@ import {
   createUIMessageStreamResponse,
   safeValidateUIMessages,
   type UIMessage,
+  type UIMessageChunk,
 } from "ai";
 import { getRun, start } from "workflow/api";
 import { z } from "zod";
 
 import { readJsonBody } from "@/lib/request-guard";
+import { CHAT_FAILURE_MESSAGE } from "@/lib/workflows/chat-stream";
 import { isRunOfWorkflow, isWorkflowRunId } from "@/lib/workflow-run-id";
 
 /**
@@ -30,6 +32,27 @@ const bodySchema = z.object({
     .min(1)
     .max(MAX_MESSAGES),
 });
+
+/**
+ * Holds back the model's own `error` chunks: the workflow retries a failed
+ * model stream (`streamWithRecovery`) and reports a final failure with
+ * `CHAT_FAILURE_MESSAGE`, which passes. Without this, the client would stop
+ * reading at the first error and miss the retried answer.
+ */
+function dropModelErrors() {
+  return new TransformStream<UIMessageChunk, UIMessageChunk>({
+    transform(chunk, controller) {
+      if (chunk.type === "error" && chunk.errorText !== CHAT_FAILURE_MESSAGE) {
+        console.warn(
+          "[chat] model stream error (retried by the run):",
+          chunk.errorText,
+        );
+        return;
+      }
+      controller.enqueue(chunk);
+    },
+  });
+}
 
 /**
  * Starts one run of `workflow` for the posted conversation. The
@@ -58,7 +81,9 @@ export async function startChatRun(
   const run = await start(workflow, [validated.data]);
 
   return createUIMessageStreamResponse({
-    stream: run.readable.pipeThrough(createModelCallToUIChunkTransform()),
+    stream: run.readable
+      .pipeThrough(createModelCallToUIChunkTransform())
+      .pipeThrough(dropModelErrors()),
     headers: { "x-workflow-run-id": run.runId },
   });
 }
@@ -104,7 +129,8 @@ export async function resumeChatRun(
       .getReadable({ startIndex: 0 })
       .pipeThrough(
         createModelCallToUIChunkTransform({ uiStartIndex: startIndex }),
-      ),
+      )
+      .pipeThrough(dropModelErrors()),
     headers: { "x-workflow-run-id": id },
   });
 }

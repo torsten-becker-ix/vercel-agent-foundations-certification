@@ -13,6 +13,7 @@ import { shoppingTools } from "../tools";
 import {
   CHAT_FAILURE_MESSAGE,
   closeChatStream,
+  streamWithRecovery,
   writeChatFailure,
 } from "./chat-stream";
 
@@ -36,18 +37,22 @@ export async function shoppingChatFlow(messages: UIMessage[]) {
   });
 
   try {
-    const result = await agent.stream({
+    const result = await streamWithRecovery(
+      async (attempt) =>
+        agent.stream({
+          ...attempt,
+          writable,
+          stopWhen: isStepCount(SHOPPING_AGENT_MAX_STEPS),
+          // We close the stream ourselves (below), so a failure can still be
+          // reported to the client before the stream ends.
+          preventClose: true,
+        }),
       // Drops tool calls without a result (e.g. the shopper pressed Stop while a
       // tool ran). Kept, they fail every later run (MissingToolResultsError).
-      messages: await convertToModelMessages(messages, {
+      await convertToModelMessages(messages, {
         ignoreIncompleteToolCalls: true,
       }),
-      writable,
-      stopWhen: isStepCount(SHOPPING_AGENT_MAX_STEPS),
-      // We close the stream ourselves (below), so a failure can still be
-      // reported to the client before the stream ends.
-      preventClose: true,
-    });
+    );
     return { messages: result.messages };
   } catch (error) {
     await writeChatFailure(writable, CHAT_FAILURE_MESSAGE);

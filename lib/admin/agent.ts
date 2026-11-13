@@ -10,7 +10,8 @@ import { SHOPPING_AGENT_PROVIDER_OPTIONS } from "@/lib/agent";
  * products you already have" (it ran 6 needless searches and ran out of
  * steps); "fetch each source once … join with one bash command" (it called
  * sales once per product and ranked them itself); "quote dates exactly as
- * from/to" (it wrote 2024-10-14 for a 2026-10-14 range). The
+ * from/to" (it wrote 2024-10-14 for a 2026-10-14 range); the calendar
+ * (see `calendarFacts`). The
  * agent runs inside `lib/workflows/admin-chat-flow.ts`; its tools live in
  * `lib/admin/tools.ts`.
  */
@@ -62,18 +63,56 @@ Memory:
 
 Answers:
 - Use tools for every fact. Never invent products, numbers or dates.
-- Be concise. Name the products, numbers and the date range you used; quote dates exactly as \`from\`/\`to\` in the tool results (YYYY-MM-DD). Money is in the store's currency; quote formatted amounts from tool results.
+- Be concise. Name the products, numbers and the date range you used; quote dates exactly as \`from\`/\`to\` in the tool results (YYYY-MM-DD).
+- For relative periods ("this week", "last month"), use the dates in the calendar below; don't work out weekdays or week starts yourself. Money is in the store's currency; quote formatted amounts from tool results.
 - State assumptions and data limits (e.g. "last 30 days", "first 100 rows").`;
+
+const day = (date: Date) => date.toISOString().slice(0, 10);
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
+}
+
+/**
+ * Today plus the usual relative periods, computed in app code (UTC).
+ * gpt-oss workaround: it called Friday 2026-11-13 a Sunday and started a
+ * Monday-based week on 2026-11-08 and on 2026-11-11, even with the weekday given.
+ */
+export function calendarFacts(now: Date): string {
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const weekday = today.toLocaleDateString("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
+  });
+  const monday = addDays(today, -((today.getUTCDay() + 6) % 7));
+  const monthStart = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1),
+  );
+  const lastMonthStart = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1),
+  );
+  return [
+    `Calendar (UTC): today is ${weekday}, ${day(today)}.`,
+    `- This week (Monday–Sunday): ${day(monday)} to ${day(addDays(monday, 6))}; so far ${day(monday)} to ${day(today)}.`,
+    `- Last week: ${day(addDays(monday, -7))} to ${day(addDays(monday, -1))}.`,
+    `- Last 7 days: ${day(addDays(today, -6))} to ${day(today)}. Last 30 days: ${day(addDays(today, -29))} to ${day(today)}.`,
+    `- This month: ${day(monthStart)} to ${day(today)}. Last month: ${day(lastMonthStart)} to ${day(addDays(monthStart, -1))}.`,
+  ].join("\n");
+}
 
 /**
  * Instructions for one run. `memory` is the saved context from the sandbox
  * memory file (read by app code at the start of every run), or null when
  * nothing has been saved yet.
  */
-export function adminInstructions(memory: string | null): string {
+export function adminInstructions(memory: string | null, now: Date): string {
   const saved =
     memory === null || memory.trim() === ""
       ? "Saved context: none yet."
       : `Saved context from earlier conversations (employee preferences, corrections, business context). Apply it, but always fetch current store data:\n${memory.trim()}`;
-  return `${BASE_INSTRUCTIONS}\n\n${saved}`;
+  return `${BASE_INSTRUCTIONS}\n\n${calendarFacts(now)}\n\n${saved}`;
 }

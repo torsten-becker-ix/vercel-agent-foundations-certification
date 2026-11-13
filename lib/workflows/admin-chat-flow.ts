@@ -13,6 +13,7 @@ import { adminTools } from "../admin/tools";
 import {
   CHAT_FAILURE_MESSAGE,
   closeChatStream,
+  streamWithRecovery,
   writeChatFailure,
 } from "./chat-stream";
 
@@ -74,22 +75,27 @@ export async function adminChatFlow(messages: UIMessage[]) {
   const memory = await loadMemoryStep();
   const agent = new WorkflowAgent({
     model: ADMIN_AGENT_MODEL,
-    instructions: adminInstructions(memory),
+    // Workflow time is deterministic (the run's start), so replays agree.
+    instructions: adminInstructions(memory, new Date()),
     tools: adminTools,
     providerOptions: ADMIN_AGENT_PROVIDER_OPTIONS,
   });
 
   try {
-    const result = await agent.stream({
+    const result = await streamWithRecovery(
+      async (attempt) =>
+        agent.stream({
+          ...attempt,
+          writable,
+          stopWhen: isStepCount(ADMIN_AGENT_MAX_STEPS),
+          prepareStep: prepareAdminStep,
+          preventClose: true,
+        }),
       // Drops tool calls without a result (Stop during a tool call).
-      messages: await convertToModelMessages(messages, {
+      await convertToModelMessages(messages, {
         ignoreIncompleteToolCalls: true,
       }),
-      writable,
-      stopWhen: isStepCount(ADMIN_AGENT_MAX_STEPS),
-      prepareStep: prepareAdminStep,
-      preventClose: true,
-    });
+    );
     return { messages: result.messages };
   } catch (error) {
     await writeChatFailure(writable, CHAT_FAILURE_MESSAGE);

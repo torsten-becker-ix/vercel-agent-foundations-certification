@@ -67,7 +67,9 @@ const dateRange = {
 export const supportTicketsInputSchema = z.object({
   ...dateRange,
   status: optionalEnum(["open", "pending", "resolved", "closed"]),
-  priority: optionalEnum(["low", "normal", "high", "urgent"]),
+  priority: optionalEnum(["low", "normal", "high", "urgent"]).describe(
+    'From lowest to highest: low, normal, high, urgent. "Urgent" means urgent, not high.',
+  ),
   category: optionalEnum([
     "shipping",
     "returns",
