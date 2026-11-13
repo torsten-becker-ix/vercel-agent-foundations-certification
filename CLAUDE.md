@@ -102,6 +102,15 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
   - DevTools "Offline" doesn't cut a stream that's already open. Test drops with a `fetch` wrapper that errors the body (see `smoke-tests.md` §Recovery in the course notes).
 - Inspect runs locally: `pnpm exec workflow inspect runs` / `pnpm exec workflow web`.
 
+### Security, SEO, accessibility (step 7)
+
+- `next.config.mjs` sets security headers on every route: a **static CSP** (no nonces, which would make every page dynamic; `'unsafe-inline'` scripts for Next's bootstrap, `'unsafe-eval'` + `ws:` in dev only), `nosniff`, `Referrer-Policy`, `Permissions-Policy`, and `poweredByHeader: false`. New external hosts (images, scripts, APIs) must be added to the CSP.
+- `lib/zod-jitless.ts` must be imported **before** anything that imports `ai`/`zod` in a client entry (`agent-sidebar.tsx`, `agent-chat.tsx`). Otherwise zod 4's `new Function` probe logs a CSP violation.
+- `lib/request-guard.ts` (`readJsonBody`) guards JSON POST routes that start model runs: `application/json` only (415), same origin only (403), byte cap (413). `/api/chat` also allows only `user`/`assistant` roles. `WorkflowChatTransport` sends no content type, so `agent-chat.tsx` passes a `fetch` wrapper that adds it. Use the guard for `/api/admin/chat` too.
+- `next start` doesn't load `.env.development.local`, so `TOOL_APPROVAL_SECRET` is missing there and approvals fail. Test approvals with `pnpm dev`.
+- SEO: `lib/site.ts` (`SITE_URL` falls back to `VERCEL_PROJECT_PRODUCTION_URL`), `app/robots.ts`, `app/sitemap.ts`, `app/icon.svg`, `app/apple-icon.tsx`, and Product JSON-LD on product pages (`lib/product-json-ld.ts`, `<` escaped; no `availability`, because stock is live while the page is SSG).
+- Agent panel a11y (`agent-sidebar.tsx`): it's a named `<section>` landmark. Opening it focuses the input (`CHAT_INPUT_ID`); closing returns focus to the robot button (`AGENT_BUTTON_ID`); Esc closes it on desktop.
+
 ## Architecture
 
 The storefront brand is **Ship It Shop** (metadata, header, homepage copy). The store is backed by the live **Vercel Swag Store API** (no local product/cart database). The protection-bypass secret stays server-side: every API read happens in a Server Component or Server Action, every cart mutation goes through a Server Action, and the cart token cookie is `httpOnly`.

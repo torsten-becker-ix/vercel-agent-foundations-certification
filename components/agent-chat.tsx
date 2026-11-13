@@ -1,5 +1,8 @@
 "use client";
 
+// First: configures zod before `ai` builds its schemas (see the module).
+import "@/lib/zod-jitless";
+
 import { useChat } from "@ai-sdk/react";
 import { WorkflowChatTransport } from "@ai-sdk/workflow/client";
 import {
@@ -79,6 +82,22 @@ function awaitsApproval(message: ShoppingUIMessage): boolean {
 const CHAT_API = "/api/chat";
 
 /**
+ * `WorkflowChatTransport` POSTs a JSON string without a `Content-Type`, so the
+ * browser sends `text/plain`, which `/api/chat` rejects (415, CSRF guard).
+ */
+const chatFetch: typeof fetch = async (input, init) => {
+  if (init?.method !== "POST") return fetch(input, init);
+  const headers = new Headers(init.headers);
+  if (!headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+  return fetch(input, { ...init, headers });
+};
+
+/** Focus target when the agent panel opens. */
+export const CHAT_INPUT_ID = "agent-chat-input";
+
+/**
  * The chat transport plus the `localStorage` bookkeeping around it (see
  * `lib/chat-storage`). Plain closure state, not React state: it changes in
  * transport callbacks and is never rendered.
@@ -94,6 +113,7 @@ function createPersistentChat(activeRunId: string | null) {
   // passes. Runtime contract is identical (see CLAUDE.md exceptions).
   const transport = new WorkflowChatTransport<ShoppingUIMessage>({
     api: CHAT_API,
+    fetch: chatFetch,
     maxConsecutiveErrors: 5,
     // The run has started: save what was sent plus its run id, before any of
     // the answer arrives. A refresh from here on resumes this run.
@@ -334,7 +354,7 @@ function ChatSession({
               </div>
             ) : null}
           </ConversationContent>
-          <ConversationScrollButton />
+          <ConversationScrollButton aria-label="Scroll to the latest message" />
         </Conversation>
 
         <p aria-live="polite" className="sr-only" role="status">
@@ -357,6 +377,7 @@ function ChatSession({
             <PromptInputBody>
               <PromptInputTextarea
                 aria-label="Message the shopping assistant"
+                id={CHAT_INPUT_ID}
                 onChange={(event) => {
                   setInput(event.currentTarget.value);
                 }}

@@ -3,13 +3,20 @@ import { createUIMessageStreamResponse, safeValidateUIMessages } from "ai";
 import { start } from "workflow/api";
 import { z } from "zod";
 
+import { readJsonBody } from "@/lib/request-guard";
 import { shoppingChatFlow } from "@/lib/workflows/chat-flow";
 
 /** Guards against oversized histories (cost) — the client sends the full conversation. */
 const MAX_MESSAGES = 100;
+/** ~10× a long real conversation with product cards; caps tokens per run. */
+const MAX_BODY_BYTES = 1_000_000;
 
 const bodySchema = z.object({
-  messages: z.array(z.unknown()).min(1).max(MAX_MESSAGES),
+  // Only shopper and assistant turns: the system prompt is the server's.
+  messages: z
+    .array(z.looseObject({ role: z.enum(["user", "assistant"]) }))
+    .min(1)
+    .max(MAX_MESSAGES),
 });
 
 /**
@@ -18,14 +25,10 @@ const bodySchema = z.object({
  * reconnect via `GET /api/chat/[id]/stream`.
  */
 export async function POST(request: Request): Promise<Response> {
-  let json: unknown;
-  try {
-    json = await request.json();
-  } catch {
-    return Response.json({ error: "invalid_json" }, { status: 400 });
-  }
+  const read = await readJsonBody(request, { maxBytes: MAX_BODY_BYTES });
+  if (!read.ok) return read.response;
 
-  const body = bodySchema.safeParse(json);
+  const body = bodySchema.safeParse(read.json);
   if (!body.success) {
     return Response.json({ error: "invalid_body" }, { status: 400 });
   }
