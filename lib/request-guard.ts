@@ -25,7 +25,7 @@ function requestHost(request: Request): string {
   );
 }
 
-function isForeignOrigin(request: Request): boolean {
+export function isForeignOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (origin === null) return false;
   try {

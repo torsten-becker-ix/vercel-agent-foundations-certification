@@ -6,6 +6,8 @@ import { getAdminSandbox } from "./sandbox";
  * Admin memory: a Markdown file in the admin sandbox, one dated bullet per
  * note. App code reads it at the start of every run (`readMemory`) and puts
  * it into the instructions; the agent adds to it with the `saveMemory` tool.
+ * It lives in the default user's home: `bash` runs as `analyst`, who can read
+ * it but not write it (see `sandbox.ts`).
  */
 export const MEMORY_FILE = "memory/MEMORY.md";
 export const MEMORY_NOTE_MAX = 300;
@@ -59,16 +61,15 @@ export function memoryForPrompt(memory: string | null): string | null {
   return kept.join("\n");
 }
 
-/** The memory file's content, or null (no file yet, or sandbox unavailable). */
+/**
+ * The memory file's content, or null when there is no file yet. Sandbox
+ * errors propagate, so the step retries instead of silently starting the
+ * conversation without the saved context.
+ */
 export async function readMemory(): Promise<string | null> {
-  try {
-    const sandbox = await getAdminSandbox();
-    const buffer = await sandbox.readFileToBuffer({ path: MEMORY_FILE });
-    return buffer?.toString("utf8") ?? null;
-  } catch (error) {
-    console.error("[admin memory] reading failed:", error);
-    return null;
-  }
+  const sandbox = await getAdminSandbox();
+  const buffer = await sandbox.readFileToBuffer({ path: MEMORY_FILE });
+  return buffer?.toString("utf8") ?? null;
 }
 
 export async function saveNote(

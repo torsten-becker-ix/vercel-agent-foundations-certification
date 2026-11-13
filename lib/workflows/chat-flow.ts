@@ -38,11 +38,11 @@ export async function shoppingChatFlow(messages: UIMessage[]) {
 
   try {
     const result = await streamWithRecovery(
-      async (attempt) =>
+      async ({ budget, ...attempt }) =>
         agent.stream({
           ...attempt,
           writable,
-          stopWhen: isStepCount(SHOPPING_AGENT_MAX_STEPS),
+          stopWhen: isStepCount(SHOPPING_AGENT_MAX_STEPS - budget.stepsUsed),
           // We close the stream ourselves (below), so a failure can still be
           // reported to the client before the stream ends.
           preventClose: true,
@@ -52,6 +52,7 @@ export async function shoppingChatFlow(messages: UIMessage[]) {
       await convertToModelMessages(messages, {
         ignoreIncompleteToolCalls: true,
       }),
+      SHOPPING_AGENT_MAX_STEPS,
     );
     return { messages: result.messages };
   } catch (error) {

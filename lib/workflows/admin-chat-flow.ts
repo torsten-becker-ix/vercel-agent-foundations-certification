@@ -13,6 +13,7 @@ import { adminTools } from "../admin/tools";
 import {
   CHAT_FAILURE_MESSAGE,
   closeChatStream,
+  type StepBudget,
   streamWithRecovery,
   writeChatFailure,
 } from "./chat-stream";
@@ -39,21 +40,24 @@ const MAX_CATALOG_CALLS = 3;
  * gpt-oss workaround: it ran 11 product searches for names it already had
  * and used up all steps without answering.
  */
-function prepareAdminStep({
-  stepNumber,
-  steps,
-}: {
-  stepNumber: number;
-  steps: { toolCalls: { toolName: string }[] }[];
-}) {
-  if (stepNumber >= ADMIN_AGENT_MAX_STEPS - 1) {
+function prepareAdminStep(
+  budget: StepBudget,
+  {
+    stepNumber,
+    steps,
+  }: {
+    stepNumber: number;
+    steps: { toolCalls: { toolName: string }[] }[];
+  },
+) {
+  // Counted across the recovery attempts of the same run.
+  if (budget.stepsUsed + stepNumber >= ADMIN_AGENT_MAX_STEPS - 1) {
     return { toolChoice: "none" as const };
   }
-  const catalogCalls = steps
-    .flatMap((step) => step.toolCalls)
-    .filter((call) =>
-      CATALOG_TOOLS.includes(call.toolName as AdminToolName),
-    ).length;
+  const catalogCalls = [
+    ...budget.toolNames,
+    ...steps.flatMap((step) => step.toolCalls.map((call) => call.toolName)),
+  ].filter((name) => CATALOG_TOOLS.includes(name as AdminToolName)).length;
   if (catalogCalls >= MAX_CATALOG_CALLS) {
     return {
       activeTools: (Object.keys(adminTools) as AdminToolName[]).filter(
@@ -83,18 +87,19 @@ export async function adminChatFlow(messages: UIMessage[]) {
 
   try {
     const result = await streamWithRecovery(
-      async (attempt) =>
+      async ({ budget, ...attempt }) =>
         agent.stream({
           ...attempt,
           writable,
-          stopWhen: isStepCount(ADMIN_AGENT_MAX_STEPS),
-          prepareStep: prepareAdminStep,
+          stopWhen: isStepCount(ADMIN_AGENT_MAX_STEPS - budget.stepsUsed),
+          prepareStep: (info) => prepareAdminStep(budget, info),
           preventClose: true,
         }),
       // Drops tool calls without a result (Stop during a tool call).
       await convertToModelMessages(messages, {
         ignoreIncompleteToolCalls: true,
       }),
+      ADMIN_AGENT_MAX_STEPS,
     );
     return { messages: result.messages };
   } catch (error) {

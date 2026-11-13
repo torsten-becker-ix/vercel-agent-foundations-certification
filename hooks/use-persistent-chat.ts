@@ -69,12 +69,30 @@ export function usePersistentChat<M extends UIMessage>({
     };
   }, [disconnected, onReconnect]);
 
-  const { stop } = chat;
+  /**
+   * Stopping only aborts the browser's stream; the durable run would keep
+   * going. Cancel it too (best effort; the run's id is read before `stop`
+   * clears it).
+   */
+  const cancelRun = () => {
+    const runId = persistence.activeRunId();
+    if (runId === null) return;
+    void fetch(`${api}/${encodeURIComponent(runId)}/cancel`, {
+      method: "POST",
+    }).catch(() => undefined);
+  };
+
+  const stop = async () => {
+    cancelRun();
+    await chat.stop();
+  };
+
   const newChat = () => {
+    cancelRun();
     persistence.discard();
-    void stop();
+    void chat.stop();
     onNewChat();
   };
 
-  return { ...chat, disconnected, newChat };
+  return { ...chat, stop, disconnected, newChat };
 }

@@ -65,6 +65,8 @@ export function createPersistentChat<M extends UIMessage>({
     transport,
     /** A run's answer is stored as unfinished and can be resumed. */
     hasActiveRun: () => runId !== null && !discarded,
+    /** The run of the answer in flight, if any. */
+    activeRunId: () => runId,
     /** The answer is complete (or stopped): nothing left to resume. */
     answerEnded: (messages: M[]) => {
       if (discarded) return;

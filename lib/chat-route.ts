@@ -1,16 +1,18 @@
 import "server-only";
 
-import { createModelCallToUIChunkTransform } from "@ai-sdk/workflow";
+import {
+  createModelCallToUIChunkTransform,
+  type ModelCallStreamPart,
+} from "@ai-sdk/workflow";
 import {
   createUIMessageStreamResponse,
   safeValidateUIMessages,
   type UIMessage,
-  type UIMessageChunk,
 } from "ai";
 import { getRun, start } from "workflow/api";
 import { z } from "zod";
 
-import { readJsonBody } from "@/lib/request-guard";
+import { isForeignOrigin, readJsonBody } from "@/lib/request-guard";
 import { CHAT_FAILURE_MESSAGE } from "@/lib/workflows/chat-stream";
 import { isRunOfWorkflow, isWorkflowRunId } from "@/lib/workflow-run-id";
 
@@ -34,22 +36,26 @@ const bodySchema = z.object({
 });
 
 /**
- * Holds back the model's own `error` chunks: the workflow retries a failed
+ * Holds back the model's own `error` parts: the workflow retries a failed
  * model stream (`streamWithRecovery`) and reports a final failure with
  * `CHAT_FAILURE_MESSAGE`, which passes. Without this, the client would stop
  * reading at the first error and miss the retried answer.
+ *
+ * Filters the raw durable stream, before the UI transform, so the UI chunk
+ * indexes on the server and the client stay equal (a reconnect with
+ * `startIndex=N` resumes exactly where the client stopped).
  */
 function dropModelErrors() {
-  return new TransformStream<UIMessageChunk, UIMessageChunk>({
-    transform(chunk, controller) {
-      if (chunk.type === "error" && chunk.errorText !== CHAT_FAILURE_MESSAGE) {
+  return new TransformStream<ModelCallStreamPart, ModelCallStreamPart>({
+    transform(part, controller) {
+      if (part.type === "error" && part.error !== CHAT_FAILURE_MESSAGE) {
         console.warn(
           "[chat] model stream error (retried by the run):",
-          chunk.errorText,
+          part.error,
         );
         return;
       }
-      controller.enqueue(chunk);
+      controller.enqueue(part);
     },
   });
 }
@@ -82,8 +88,8 @@ export async function startChatRun(
 
   return createUIMessageStreamResponse({
     stream: run.readable
-      .pipeThrough(createModelCallToUIChunkTransform())
-      .pipeThrough(dropModelErrors()),
+      .pipeThrough(dropModelErrors())
+      .pipeThrough(createModelCallToUIChunkTransform()),
     headers: { "x-workflow-run-id": run.runId },
   });
 }
@@ -127,10 +133,40 @@ export async function resumeChatRun(
   return createUIMessageStreamResponse({
     stream: run
       .getReadable({ startIndex: 0 })
+      .pipeThrough(dropModelErrors())
       .pipeThrough(
         createModelCallToUIChunkTransform({ uiStartIndex: startIndex }),
-      )
-      .pipeThrough(dropModelErrors()),
+      ),
     headers: { "x-workflow-run-id": id },
   });
+}
+
+/**
+ * Cancels a chat run when the user presses Stop or starts a new chat, so the
+ * durable run doesn't keep calling the model, tools or the sandbox unseen.
+ * Same checks as resume (id format, workflow kind), plus same-origin.
+ */
+export async function cancelChatRun(
+  request: Request,
+  id: string,
+  exportName: "shoppingChatFlow" | "adminChatFlow",
+): Promise<Response> {
+  if (isForeignOrigin(request)) {
+    return Response.json({ error: "forbidden_origin" }, { status: 403 });
+  }
+  if (!isWorkflowRunId(id)) {
+    return Response.json({ error: "invalid_run_id" }, { status: 400 });
+  }
+  const run = getRun(id);
+  if (
+    !(await run.exists) ||
+    !isRunOfWorkflow(await run.workflowName, exportName)
+  ) {
+    return Response.json({ error: "run_not_found" }, { status: 404 });
+  }
+  const status = await run.status;
+  if (status === "pending" || status === "running") {
+    await run.cancel({ cancelReason: "Stopped by the user" });
+  }
+  return new Response(null, { status: 204 });
 }

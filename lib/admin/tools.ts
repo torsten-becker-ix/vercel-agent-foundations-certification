@@ -12,6 +12,12 @@ import {
   getStoreConfig,
 } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
+import type {
+  ProductSalesRow,
+  Return,
+  StockEntry,
+  SupportTicket,
+} from "@/lib/types";
 import { rethrow } from "@/lib/tool-errors";
 import { optionalInt, optionalText, shoppingTools } from "@/lib/tools";
 
@@ -151,6 +157,73 @@ const SAMPLE_SIZE = 10;
  * the summary's shape to go on, it assumed `{ items: [...] }` for the stock
  * file and spent 12 failing bash calls on it.)
  */
+// Rows are built from an allowlist of fields: anything the API adds later
+// (e.g. a customer name) doesn't reach the model, the sandbox or the chat.
+
+function ticketRow(ticket: SupportTicket) {
+  return {
+    id: ticket.id,
+    subject: ticket.subject,
+    status: ticket.status,
+    priority: ticket.priority,
+    category: ticket.category,
+    relatedOrderId: ticket.relatedOrderId,
+    relatedReturnId: ticket.relatedReturnId,
+    assignee: ticket.assignee,
+    messagePreview: ticket.messagePreview,
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt,
+    lastMessageAt: ticket.lastMessageAt,
+  };
+}
+
+function returnRow(ret: Return, names: ReadonlyMap<string, string>) {
+  return {
+    id: ret.id,
+    orderId: ret.orderId,
+    // Item names from the catalog, so a ranking needs no product lookups.
+    items: ret.items.map(({ productId, quantity }) => ({
+      productId,
+      quantity,
+      name: names.get(productId) ?? null,
+    })),
+    reason: ret.reason,
+    status: ret.status,
+    decision: ret.decision,
+    refundAmount: ret.refundAmount,
+    notes: ret.notes,
+    orderTotal: ret.order?.total ?? null,
+    orderStatus: ret.order?.status ?? null,
+    createdAt: ret.createdAt,
+    processedAt: ret.processedAt,
+  };
+}
+
+function stockRow(entry: StockEntry) {
+  return {
+    productId: entry.productId,
+    name: entry.product.name,
+    category: entry.product.category,
+    stock: entry.stock,
+    inStock: entry.inStock,
+    lowStock: entry.lowStock,
+    updatedAt: entry.updatedAt,
+  };
+}
+
+function salesRow(row: ProductSalesRow) {
+  return {
+    productId: row.productId,
+    name: row.product.name,
+    category: row.product.category,
+    price: row.product.price,
+    unitsSold: row.unitsSold,
+    ordersCount: row.ordersCount,
+    revenue: row.revenue,
+    currency: row.currency,
+  };
+}
+
 function describeFile(path: string | null, rows: readonly unknown[]) {
   return {
     file: path,
@@ -186,7 +259,7 @@ export async function getSupportTicketsStep(
   try {
     const { data, meta } = await getBackOfficeSupportTickets(input);
     // No customer emails (PII) in the model context or the sandbox.
-    const rows = data.map(({ customerEmail: _email, ...ticket }) => ticket);
+    const rows = data.map(ticketRow);
     const file = await writeDataFile(
       dataFileName("support-tickets", input),
       rows,
@@ -216,15 +289,8 @@ export async function getReturnsHistoryStep(
       storeCurrency(),
       productNames(),
     ]);
-    // `callback` is a webhook URL (a bearer token): never passed on. Item
-    // names come from the catalog, so a ranking needs no product lookups.
-    const rows = data.map(({ callback: _callback, ...ret }) => ({
-      ...ret,
-      items: ret.items.map((item) => ({
-        ...item,
-        name: names.get(item.productId) ?? null,
-      })),
-    }));
+    // No `callback` (a webhook URL = bearer token).
+    const rows = data.map((ret) => returnRow(ret, names));
     const file = await writeDataFile(dataFileName("returns", input), rows);
     return {
       count: meta.count,
@@ -245,9 +311,9 @@ export async function getReturnsHistoryStep(
             ? null
             : formatPrice(ret.refundAmount, currency),
         orderTotalFormatted:
-          ret.order === null || ret.order === undefined
+          ret.orderTotal === null
             ? null
-            : formatPrice(ret.order.total, currency),
+            : formatPrice(ret.orderTotal, currency),
         createdAt: ret.createdAt,
       })),
     };
@@ -262,18 +328,12 @@ export async function getInventoryStockStep(
   "use step";
   try {
     const { data, meta } = await getBackOfficeStock(input);
-    const file = await writeDataFile(dataFileName("stock", input), data);
+    const rows = data.map(stockRow);
+    const file = await writeDataFile(dataFileName("stock", input), rows);
     return {
       pagination: meta.pagination,
-      ...describeFile(file, data),
-      items: data.map((entry) => ({
-        productId: entry.productId,
-        name: entry.product.name,
-        category: entry.product.category,
-        stock: entry.stock,
-        inStock: entry.inStock,
-        lowStock: entry.lowStock,
-      })),
+      ...describeFile(file, rows),
+      items: rows.map(({ updatedAt: _updatedAt, ...item }) => item),
     };
   } catch (error) {
     rethrow(error, "Loading inventory");
@@ -286,7 +346,8 @@ export async function getSalesAnalyticsStep(
   "use step";
   try {
     const { data, meta } = await getBackOfficeSales(input);
-    const file = await writeDataFile(dataFileName("sales", input), data);
+    const rows = data.map(salesRow);
+    const file = await writeDataFile(dataFileName("sales", input), rows);
     return {
       from: meta.from,
       to: meta.to,
@@ -299,7 +360,7 @@ export async function getSalesAnalyticsStep(
         revenueFormatted: formatPrice(meta.totals.revenue, meta.currency),
       },
       productCount: meta.count,
-      ...describeFile(file, data),
+      ...describeFile(file, rows),
       topByRevenue: data
         .toSorted((a, b) => b.revenue - a.revenue)
         .slice(0, SAMPLE_SIZE)

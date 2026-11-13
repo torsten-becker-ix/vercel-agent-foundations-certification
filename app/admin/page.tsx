@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Bot } from "lucide-react";
-import { logoutAction } from "@/lib/admin-actions";
-import { Button } from "@/components/ui/button";
 import { AdminAgentChat } from "@/components/admin-agent-chat";
+import { SignOutButton } from "@/components/admin/sign-out-button";
 
 export const metadata: Metadata = {
   title: "Store Admin Agent",
@@ -21,11 +20,7 @@ export default function AdminPage() {
             <Bot className="h-5 w-5" aria-hidden="true" />
             <span>Store Admin Agent</span>
           </Link>
-          <form action={logoutAction}>
-            <Button type="submit" variant="ghost" size="sm">
-              Sign out
-            </Button>
-          </form>
+          <SignOutButton />
         </div>
       </header>
 
