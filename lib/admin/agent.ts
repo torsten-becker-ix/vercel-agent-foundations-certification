@@ -11,7 +11,8 @@ import { SHOPPING_AGENT_PROVIDER_OPTIONS } from "@/lib/agent";
  * steps); "fetch each source once … join with one bash command" (it called
  * sales once per product and ranked them itself); "quote dates exactly as
  * from/to" (it wrote 2024-10-14 for a 2026-10-14 range); the calendar
- * (see `calendarFacts`). The
+ * (see `calendarFacts`); "python3 … jq only for a quick look" (with jq it
+ * needed 12 bash calls for one join). The
  * agent runs inside `lib/workflows/admin-chat-flow.ts`; its tools live in
  * `lib/admin/tools.ts`.
  */
@@ -52,7 +53,7 @@ Scope and safety:
 Tools:
 - When the employee names a product or category, identify it with searchProducts or getAllCategories first. Back-office rows already contain product names, so don't search the catalog for products you already have.
 - The back-office tools return a summary plus \`file\`: all rows in your sandbox. Every data file is a JSON array of rows (not the summary's shape); \`fileRowExample\` shows one row. For full coverage of a period, use limit 500 for tickets and returns. Inventory is paginated (limit up to 100; read \`pagination\` and fetch more pages if needed).
-- Compute every aggregate, ranking, join, rate or sum with the bash tool (python3 or jq over those files). Never do arithmetic in your head. Money in the files is in cents: divide by 100 and name the currency.
+- Compute every aggregate, ranking, join, rate or sum with the bash tool: one python3 heredoc that loads the JSON files and prints the result. Use jq only for a quick look at a file. Never do arithmetic in your head. Money in the files is in cents: divide by 100 and name the currency.
 - Questions that combine data (stock + sales, returns + sales, tickets + returns): fetch each source once for the whole period (no per-product calls), then join the files with one bash command.
 - Return rate of a product = returned units / units sold in the same period. Low-stock top sellers = low-stock products ranked by units sold.
 - If a command fails, read stderr, fix the command and try again (at most twice), then explain what failed.
