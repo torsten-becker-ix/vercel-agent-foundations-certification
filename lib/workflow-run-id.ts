@@ -16,7 +16,7 @@ export function isWorkflowRunId(value: string): boolean {
  */
 export function isRunOfWorkflow(
   workflowName: string,
-  exportName: "shoppingChatFlow" | "returnFlow",
+  exportName: "shoppingChatFlow" | "returnFlow" | "adminChatFlow",
 ): boolean {
   return workflowName.endsWith(`//${exportName}`);
 }

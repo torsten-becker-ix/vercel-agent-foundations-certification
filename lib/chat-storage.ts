@@ -1,24 +1,30 @@
-import type { ShoppingUIMessage } from "@/lib/chat-types";
+import type { UIMessage } from "ai";
+
 import { isWorkflowRunId } from "@/lib/workflow-run-id";
 
 /**
- * Persists the shopping chat in `localStorage`, so a page refresh restores
- * the conversation and reconnects to an answer that is still streaming.
+ * Persists a chat in `localStorage`, so a page refresh restores the
+ * conversation and reconnects to an answer that is still streaming. Used by
+ * the shopping chat and the admin chat, each under its own key.
  *
  * `messages` never contains the answer that is in flight: it is saved when a
  * request is sent (the messages that went to the server) and when an answer
  * ends. After a refresh the in-flight answer is rebuilt once from the durable
  * stream of `activeRunId`, so it can't appear twice.
  */
-export interface StoredChat {
-  readonly messages: ShoppingUIMessage[];
+export interface StoredChat<M extends UIMessage = UIMessage> {
+  readonly messages: M[];
   /** The run streaming the latest answer; `null` once that answer ended. */
   readonly activeRunId: string | null;
 }
 
-export const EMPTY_CHAT: StoredChat = { messages: [], activeRunId: null };
+export const EMPTY_CHAT: StoredChat<never> = {
+  messages: [],
+  activeRunId: null,
+};
 
-const STORAGE_KEY = "ship-it-shop:chat";
+export const SHOPPING_CHAT_KEY = "ship-it-shop:chat";
+export const ADMIN_CHAT_KEY = "ship-it-shop:admin-chat";
 /** Bump when the stored shape changes; older entries are then ignored. */
 const VERSION = 1;
 
@@ -37,7 +43,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * this guards against old formats and hand-edited storage, not attackers.
  * The server validates the messages again on the next request.
  */
-function isMessage(value: unknown): value is ShoppingUIMessage {
+function isMessage(value: unknown): value is UIMessage {
   if (!isRecord(value)) return false;
   const { id, role, parts } = value;
   return (
@@ -49,7 +55,9 @@ function isMessage(value: unknown): value is ShoppingUIMessage {
 }
 
 /** Parses a stored value; anything unexpected yields an empty chat. */
-export function parseStoredChat(raw: string | null): StoredChat {
+export function parseStoredChat<M extends UIMessage = UIMessage>(
+  raw: string | null,
+): StoredChat<M> {
   if (raw === null) return EMPTY_CHAT;
   let value: unknown;
   try {
@@ -63,7 +71,8 @@ export function parseStoredChat(raw: string | null): StoredChat {
     return EMPTY_CHAT;
   }
   return {
-    messages,
+    // Shape-checked above; the message type is the caller's (its own key).
+    messages: messages as M[],
     activeRunId:
       typeof activeRunId === "string" && isWorkflowRunId(activeRunId)
         ? activeRunId
@@ -85,23 +94,35 @@ function storage(): Storage | undefined {
   }
 }
 
-export function loadChat(): StoredChat {
-  try {
-    return parseStoredChat(storage()?.getItem(STORAGE_KEY) ?? null);
-  } catch {
-    return EMPTY_CHAT;
-  }
+export interface ChatStore<M extends UIMessage> {
+  load: () => StoredChat<M>;
+  save: (chat: StoredChat<M>) => void;
+  clear: () => void;
 }
 
-export function saveChat(chat: StoredChat): void {
-  try {
-    if (chat.messages.length === 0) storage()?.removeItem(STORAGE_KEY);
-    else storage()?.setItem(STORAGE_KEY, serializeChat(chat));
-  } catch {
-    // Persistence is best effort; the chat keeps working without it.
-  }
-}
-
-export function clearChat(): void {
-  saveChat(EMPTY_CHAT);
+/** One chat's storage under `key` (best effort: storage can be unavailable). */
+export function createChatStore<M extends UIMessage>(
+  key: string,
+): ChatStore<M> {
+  const save = (chat: StoredChat<M>) => {
+    try {
+      if (chat.messages.length === 0) storage()?.removeItem(key);
+      else storage()?.setItem(key, serializeChat(chat));
+    } catch {
+      // Persistence is best effort; the chat keeps working without it.
+    }
+  };
+  return {
+    load: () => {
+      try {
+        return parseStoredChat<M>(storage()?.getItem(key) ?? null);
+      } catch {
+        return EMPTY_CHAT;
+      }
+    },
+    save,
+    clear: () => {
+      save(EMPTY_CHAT);
+    },
+  };
 }

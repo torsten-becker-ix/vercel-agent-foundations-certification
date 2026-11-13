@@ -10,34 +10,11 @@ import {
   TOOL_APPROVAL_SECRET_ENV,
 } from "../agent";
 import { shoppingTools } from "../tools";
-
-/** Shown to the shopper when a run fails for good (no internals). */
-export const CHAT_FAILURE_MESSAGE =
-  "Sorry, something went wrong while answering. Please try again.";
-
-/**
- * Writes an `error` part into the durable stream. It becomes a UI `error`
- * chunk, so the client shows a failure (instead of an empty answer) and a
- * reconnect replays it too.
- */
-async function writeChatFailure(
-  writable: WritableStream<ModelCallStreamPart>,
-  message: string,
-) {
-  "use step";
-  const writer = writable.getWriter();
-  try {
-    await writer.write({ type: "error", error: message });
-  } finally {
-    writer.releaseLock();
-  }
-}
-
-/** Closes the durable stream; the client then receives its final `finish`. */
-async function closeChatStream(writable: WritableStream<ModelCallStreamPart>) {
-  "use step";
-  await writable.close();
-}
+import {
+  CHAT_FAILURE_MESSAGE,
+  closeChatStream,
+  writeChatFailure,
+} from "./chat-stream";
 
 /**
  * Durable shopping chat: one workflow run per user message. Every model call

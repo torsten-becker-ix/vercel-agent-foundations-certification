@@ -129,7 +129,7 @@ export type GetProductDetailsResult =
 
 // gpt-oss workaround: gpt-oss sends `null` for omitted optional fields, so the
 // optional inputs accept `null` and are normalized to `undefined`.
-const optionalText = (max: number) =>
+export const optionalText = (max: number) =>
   z
     .string()
     .trim()
@@ -139,7 +139,7 @@ const optionalText = (max: number) =>
       value === null || value === undefined || value === "" ? undefined : value,
     );
 
-const optionalInt = (min: number, max: number) =>
+export const optionalInt = (min: number, max: number) =>
   z
     .number()
     .int()
@@ -541,7 +541,7 @@ export const shoppingTools = {
   }),
   returnOrder: tool({
     description:
-      "Return all items of a delivered order. Needs the order number and the shopper's reason. The shopper confirms with a button before anything happens. Results: `filed` (return started; the decision follows in about a minute), `not_eligible` (with explanation) or `not_found`.",
+      "Return all items of a delivered order. Needs the order number and the shopper's reason. The shopper confirms with a button before anything happens. Results: `submitted` (return started; filing and the decision follow within about a minute), `not_eligible` (with explanation) or `not_found`.",
     inputSchema: returnOrderInputSchema,
     // Only eligible orders get an approval card; anything else is answered
     // directly by execute (not_found / not_eligible), with nothing to approve.
