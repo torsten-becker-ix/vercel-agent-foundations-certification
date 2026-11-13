@@ -45,7 +45,7 @@ The rule is the strictest available setting. Anything weaker must be listed unde
 | `lib/api.ts` request helpers trust the API response type (return-type-only generics, one inline disable) | The response types mirror the store's OpenAPI spec. Runtime validation (zod) happens at the agent tool boundary, where the data reaches the model. |
 | `notifyReturnInProcess` uses `console.log` and is `async` without `await` (inline disables) | Intentional stand-in for an email-provider call, provided by the starter. |
 | Not enabled: `explicit-function-return-type`, `explicit-module-boundary-types`, `naming-convention` | Style only, not safety. They fight React/Next conventions (components, route handlers) and the API's field names; strict TS already checks the inferred types. |
-| `components/agent-chat.tsx`: `WorkflowChatTransport` is cast to `ChatTransport` | Typing conflict between two Vercel packages under `exactOptionalPropertyTypes` (`@ai-sdk/workflow` declares `messageId?: string`, `ai` passes `string \| undefined`). Runtime contract identical; re-check on upgrades. |
+| `lib/persistent-chat.ts`: `WorkflowChatTransport` is cast to `ChatTransport` | Typing conflict between two Vercel packages under `exactOptionalPropertyTypes` (`@ai-sdk/workflow` declares `messageId?: string`, `ai` passes `string \| undefined`). Runtime contract identical; re-check on upgrades. |
 | `lib/chat-types.ts`: `Record<never, never>` data parts (inline disable of `no-generated-empty-object-type`) | Intentionally no custom data parts; it keeps the message-part union closed, so `switch` statements stay exhaustive. |
 | `@typescript-eslint/no-deprecated` disabled for `needsApproval` in `lib/tools.ts` | `ai` deprecates tool-level `needsApproval` in favour of call-level `toolApproval`, but `WorkflowAgent` documents tool-level `needsApproval` as its approval mechanism (`node_modules/ai/docs/03-agents/07-workflow-agent.mdx`). |
 | `react/no-array-index-key` disabled once in `components/shopping/chat-message.tsx` | Message parts are append-only and have no ids. |
@@ -97,7 +97,7 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
   - Run ids come from the client, so lookups check the workflow: the resume route only streams `shoppingChatFlow` runs and `getReturnStatus` only reads `returnFlow` runs (`isRunOfWorkflow`).
   - Only the latest message's approval card has live buttons; older ones show "expired", because an approval outside the last message is never sent and would leave a tool call without a result.
 - `chat-flow.ts` converts with `ignoreIncompleteToolCalls: true`: Stop during a tool call leaves an `input-available` part, which would otherwise fail every later run (`MissingToolResultsError`).
-- Chat recovery (`lib/chat-storage.ts`, `components/agent-chat.tsx`): `localStorage` key `ship-it-shop:chat` holds the messages **as sent** plus the active run id, saved in the transport's `onChatSendMessage` and cleared in `onFinish`. It never holds the in-flight answer; that answer is rebuilt once by replaying the run from index 0.
+- Chat recovery (`lib/chat-storage.ts`, `lib/persistent-chat.ts`, `hooks/use-persistent-chat.ts`, `components/chat/*`; shared by both chats): `localStorage` keys `ship-it-shop:chat` / `ship-it-shop:admin-chat` holds the messages **as sent** plus the active run id, saved in the transport's `onChatSendMessage` and cleared in `onFinish`. It never holds the in-flight answer; that answer is rebuilt once by replaying the run from index 0.
   - Page refresh: `useChat({ messages, resume })`, with `resume` only when a run id is stored (an empty resume throws in `WorkflowChatTransport`). `prepareReconnectToStreamRequest` points the resume at `/api/chat/<runId>/stream`.
   - Connection lost (fetch fails while offline → `isDisconnect`): the `online` event or **Reconnect** remounts the session from storage, the same path as a refresh. Don't call `resumeStream()` in place: it would replay from 0 on top of the partial answer and duplicate it. And setting `resumeStreamIsReplay` would wipe the approval message on an approval continuation.
   - Drops while online are handled by the transport itself (`GET …/stream?startIndex=N`).
@@ -105,6 +105,19 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
   - In dev, StrictMode starts two resumes; the SDK cancels the first.
   - DevTools "Offline" doesn't cut a stream that's already open. Test drops with a `fetch` wrapper that errors the body (see `smoke-tests.md` §Recovery in the course notes).
 - Inspect runs locally: `pnpm exec workflow inspect runs` / `pnpm exec workflow web`.
+
+### Admin agent (`/admin`)
+
+Plan and decisions: `admin-agent-plan.md` in the course notes (outside the repo).
+
+- Separate agent: `lib/admin/agent.ts` (model, routing, `adminInstructions(memory)`), `lib/admin/tools.ts`, `lib/workflows/admin-chat-flow.ts` (one run per message, like the shop), `components/admin-agent-chat.tsx` + `components/admin/*`. The shopping agent has none of these tools.
+- Routes: `app/api/admin/chat/route.ts` and `[id]/stream/route.ts` check the admin cookie themselves (`isAdminRequest` in `lib/admin-request.ts`, constant-time). `proxy.ts` only guards the `/admin` pages. Route logic shared with the shop: `lib/chat-route.ts`.
+- The admin cookie path is `/` (the starter had `/admin`, so the browser never sent it to `/api/admin/*`).
+- Tools: `getSupportTickets`, `getReturnsHistory`, `getInventoryStock`, `getSalesAnalytics` (server-side fetch → PII stripped (`customerEmail`, return `callback`) → full rows written to the sandbox as `data/<tool>-<hash>.json` → compact summary + `file` to the model), the shop's `searchProducts`/`getAllCategories`, `bash`, `saveMemory`. Read-only towards the store.
+- Sandbox (`lib/admin/sandbox.ts`): one named persistent Vercel Sandbox per environment (`ship-it-shop-admin-<VERCEL_ENV>`), `deny-all` network, no secrets in its env, 1 vCPU, filesystem snapshotted on stop and resumed on the next call. `@vercel/sandbox` 3.9.1: the home/working dir is `/vercel` (not `/vercel/sandbox`) → home-relative paths only. `bash` runs under coreutils `timeout` (30 s), output capped at 8,000 characters; a non-zero exit is a result.
+- Memory (`lib/admin/memory.ts`): `memory/MEMORY.md` in the sandbox, one dated bullet per note. Read in a step at the start of every run and put into the instructions; `saveMemory` appends idempotently (duplicates skipped).
+- Local sandbox auth: `VERCEL_OIDC_TOKEN` from `vercel env pull .env.local` (12 h). On Vercel the function's OIDC token is used automatically.
+- gpt-oss: provider order `groq, baseten, bedrock, cerebras` for the admin agent; tool-schema limits must be generous (it writes 2–3k-character python heredocs; a too-small `max` makes the provider reject the whole call).
 
 ### Security, SEO, accessibility (step 7)
 

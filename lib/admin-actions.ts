@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { ADMIN_COOKIE_NAME, ADMIN_PASSWORD } from "./admin-auth";
 
 const COOKIE_MAX_AGE = 60 * 60 * 24; // 1 day
+/**
+ * "/" (the starter had "/admin"): the admin chat API lives at `/api/admin/*`
+ * and checks this cookie itself, so the browser must send it there too.
+ */
+const COOKIE_PATH = "/";
 
 export async function loginAction(formData: FormData): Promise<void> {
   const password = formData.get("password");
@@ -17,13 +22,13 @@ export async function loginAction(formData: FormData): Promise<void> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     maxAge: COOKIE_MAX_AGE,
-    path: "/admin",
+    path: COOKIE_PATH,
   });
   redirect("/admin");
 }
 
 export async function logoutAction(): Promise<void> {
   const store = await cookies();
-  store.delete(ADMIN_COOKIE_NAME);
+  store.delete({ name: ADMIN_COOKIE_NAME, path: COOKIE_PATH });
   redirect("/admin/login");
 }

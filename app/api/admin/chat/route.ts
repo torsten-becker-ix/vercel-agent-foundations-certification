@@ -1,16 +1,12 @@
-/**
- * This is where the admin chat API route will live.
- *
- * During the workshop you'll wire this up to the agent in `lib/agent.ts`
- * using `createAgentUIStreamResponse` from the AI SDK. The chat panel in
- * `components/agent-chat.tsx` posts here once you swap its placeholder
- * `useState` for `useChat`.
- *
- * Workshop docs: https://agent-foundations-certification.vercel.app/docs/admin-chat-agent
- */
+import { isAdminRequest, unauthorized } from "@/lib/admin-request";
+import { startChatRun } from "@/lib/chat-route";
+import { adminChatFlow } from "@/lib/workflows/admin-chat-flow";
 
-export const POST = () =>
-  new Response(
-    "Not implemented yet — finish the chat-agent workshop step to enable this route.",
-    { status: 501 },
-  );
+/**
+ * Admin chat: one durable run per employee message. Checks the admin cookie
+ * itself, because `proxy.ts` only guards the `/admin` pages.
+ */
+export async function POST(request: Request): Promise<Response> {
+  if (!(await isAdminRequest())) return unauthorized();
+  return startChatRun(request, adminChatFlow);
+}
