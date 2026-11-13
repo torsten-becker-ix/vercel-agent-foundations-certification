@@ -355,7 +355,10 @@ export const getReturnStatusInputSchema = z.object({
     .string()
     .trim()
     .regex(/^wrun_[0-9A-Z]{26}$/)
-    .describe("The returnRunId from the returnOrder result."),
+    // gpt-oss workaround: it showed this id to the shopper as a "return run ID".
+    .describe(
+      "Internal reference: the returnRunId from the returnOrder result. Never show it to the shopper.",
+    ),
 });
 
 export type ReturnOrderInput = z.output<typeof returnOrderInputSchema>;
