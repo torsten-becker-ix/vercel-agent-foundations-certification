@@ -86,7 +86,7 @@ Follow them when writing or reviewing code. For AI SDK 7, AI Elements, Workflows
 ### Agents and workflows
 
 - `withWorkflow` (`next.config.mjs`) generates `app/.well-known/workflow/v1/*` (git-ignored by its own `.gitignore`) and a `.swc/` cache; both are excluded from ESLint/Prettier. Don't add `.well-known/workflow` to the `proxy.ts` matcher.
-- `pnpm-workspace.yaml`: `allowBuilds` for `@swc/core`, `esbuild`, `cbor-extract` (needed by `workflow`, pnpm 12 blocks install scripts otherwise), plus `minimumReleaseAgeExclude` for the pinned `ai@7.0.170` family.
+- `pnpm-workspace.yaml`: `allowBuilds` for `@swc/core`, `esbuild`, `cbor-extract` (needed by `workflow`, pnpm 12 blocks install scripts otherwise), plus `minimumReleaseAgeExclude` for the pinned `ai@7.0.170` family. `overrides` pin fixed versions of transitive packages with security advisories (reasons in the file); `pnpm audit --prod` should only show `minimatch` (dev-only path).
 - Model: `openai/gpt-oss-120b` for both agents, including the submission (free-tier Gateway credits exclude Anthropic models). One constant per agent.
 - Model-specific code is tagged `gpt-oss workaround:` (`grep -rn "gpt-oss workaround" lib components app`). Review these when changing the model; add the tag to every new one.
 - AI Gateway routing: `SHOPPING_AGENT_PROVIDER_OPTIONS` in `lib/agent.ts` restricts gpt-oss-120b to tested providers (Together AI broke tool-call parsing). Free-tier credits are rate-limited (429); the AI SDK retries those.

@@ -8,3 +8,17 @@ minimumReleaseAgeExclude:
   - "@ai-sdk/react@4.0.174"
   - "@ai-sdk/workflow@2.0.102"
   - ai@7.0.170
+# Security: transitive versions with known advisories (pnpm audit --prod), until
+# the parents update. Remove an entry once its parent ships the fixed version.
+#   lodash: recharts (components/ui/chart.tsx) · dompurify, mermaid: @streamdown/mermaid
+#   katex: @streamdown/math · browserslist, baseline-browser-mapping: next
+#   zod: @vercel/oidc pins 4.1.x (one zod 4 copy for everything)
+# Not overridden: minimatch 10 (fix is 11, a major) via workflow's local world (dev only).
+overrides:
+  lodash: ^4.18.1
+  dompurify: ^3.4.17
+  mermaid: ^11.16.1
+  katex: ^0.18.2
+  browserslist: ^4.28.7
+  baseline-browser-mapping: ^2.11.0
+  zod: ^4.6.7
