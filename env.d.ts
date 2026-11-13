@@ -12,5 +12,7 @@ declare namespace NodeJS {
     readonly RETURN_FLOW_FAULT?: string;
     /** Public site URL for metadata. */
     readonly NEXT_PUBLIC_SITE_URL?: string;
+    /** Vercel system var: production domain without protocol (fallback for the site URL). */
+    readonly VERCEL_PROJECT_PRODUCTION_URL?: string;
   }
 }

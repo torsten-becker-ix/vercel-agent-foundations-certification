@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ApiRequestError, getProductById, getProducts } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
+import { productJsonLd, serializeJsonLd } from "@/lib/product-json-ld";
+import { SITE_URL } from "@/lib/site";
 import { ProductPurchase } from "./product-purchase";
 import { RelatedProducts } from "./related-products";
 
@@ -60,9 +62,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const image = product.images[0];
+  const jsonLd = productJsonLd(product, `${SITE_URL}/products/${product.id}`);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <script
+        // Escaped JSON (see serializeJsonLd), not executable script.
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+        type="application/ld+json"
+      />
       <Link
         href="/search"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
