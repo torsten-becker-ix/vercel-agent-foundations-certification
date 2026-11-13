@@ -2,8 +2,7 @@ import { createModelCallToUIChunkTransform } from "@ai-sdk/workflow";
 import { createUIMessageStreamResponse } from "ai";
 import { getRun } from "workflow/api";
 
-/** Workflow run ids look like `wrun_` + 26 Crockford base32 characters. */
-const RUN_ID = /^wrun_[0-9A-Z]{26}$/;
+import { isWorkflowRunId } from "@/lib/workflow-run-id";
 
 /**
  * Reconnects to a running (or finished) chat run, used by
@@ -19,7 +18,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await params;
-  if (!RUN_ID.test(id)) {
+  if (!isWorkflowRunId(id)) {
     return Response.json({ error: "invalid_run_id" }, { status: 400 });
   }
 
