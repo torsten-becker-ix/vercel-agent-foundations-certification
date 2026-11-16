@@ -49,7 +49,7 @@ The rule is the strictest available setting. Anything weaker must be listed unde
 | `lib/chat-types.ts`: `Record<never, never>` data parts (inline disable of `no-generated-empty-object-type`) | Intentionally no custom data parts; it keeps the message-part union closed, so `switch` statements stay exhaustive. |
 | `@typescript-eslint/no-deprecated` disabled for `needsApproval` in `lib/tools.ts` | `ai` deprecates tool-level `needsApproval` in favour of call-level `toolApproval`, but `WorkflowAgent` documents tool-level `needsApproval` as its approval mechanism (`node_modules/ai/docs/03-agents/07-workflow-agent.mdx`). |
 | `react/no-array-index-key` disabled once in `components/shopping/chat-message.tsx` | Message parts are append-only and have no ids. |
-| Prettier ignores `*.md` | `CLAUDE.md` is partly rewritten by `next dev`; `README.md` is written once just before submission. |
+| Prettier ignores `*.md` | `AGENTS.md` is rewritten by `next dev`; `README.md` is written once just before submission. |
 
 ## Best-practice skills
 
@@ -183,12 +183,8 @@ Everything else (`Header`, `Footer`, `ProductCard`, `ProductGrid`, `PromoBanner`
 - The repo is linked to v0 (`https://v0.app/chat/projects/prj_X7UGePkFlLC33RuxWiTZySFDcSzO`); merges to `main` auto-deploy via Vercel. v0 may push commits directly. When deploying, set `BYPASS_SECRET` (and `API_BASE_URL`) in the Vercel project's environment variables.
 - The root layout is intentionally synchronous so it doesn't opt routes out of static. `pnpm build` should report `/` as `○` (Static), `/products/[param]` as `●` (SSG), and `/search` as `ƒ` (Dynamic). If you ever convert the layout to `async function` and `await` something that uses `cookies()`/`headers()`/`searchParams`, you will silently switch every route back to dynamic — verify the build output after layout changes.
 
-<!-- BEGIN:nextjs-agent-rules -->
+## Next.js agent rules
 
-# This is NOT the Next.js you know
+`next dev` writes and maintains this block in `AGENTS.md` (`node_modules/next/dist/server/lib/generate-agent-files.js`); it's imported here so there is a single copy:
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+@AGENTS.md
