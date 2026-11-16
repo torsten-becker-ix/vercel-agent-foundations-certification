@@ -12,7 +12,14 @@ export async function getCartToken(): Promise<string | undefined> {
 export async function getOrCreateCartToken(): Promise<string> {
   const existing = await getCartToken();
   if (existing !== undefined) return existing;
+  return createCartToken();
+}
 
+/**
+ * Creates a new cart and stores its token, replacing any previous one (e.g.
+ * a cart the store API no longer knows).
+ */
+export async function createCartToken(): Promise<string> {
   const { token } = await cartCreate();
   const store = await cookies();
   store.set(CART_TOKEN_COOKIE, token, {
